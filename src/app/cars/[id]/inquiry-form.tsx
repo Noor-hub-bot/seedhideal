@@ -27,7 +27,7 @@ export function InquiryForm({
           Sign in with your phone number to contact the seller. Their number
           stays protected — the conversation happens here.
         </p>
-        <ButtonLink href={`/signin?next=/cars/${listingId}`}>
+        <ButtonLink href={`/sign-in?next=/cars/${listingId}`}>
           Sign in to contact seller
         </ButtonLink>
       </Card>

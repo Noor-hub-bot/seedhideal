@@ -1,44 +1,71 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { createHash, randomBytes, randomInt } from "node:crypto";
+import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
 import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { db, otpChallenges, sessions, users } from "@/db";
-import { sendSms } from "@/lib/sms";
-import { twilioCheckVerification, twilioStartVerification } from "@/lib/otp-twilio";
+import { sendOtpEmail } from "@/lib/email";
 import { TERMS_VERSION } from "@/lib/constants";
 
 const SESSION_COOKIE = "sd_session";
 const SESSION_DAYS = 30;
-const OTP_TTL_MINUTES = 5;
+const OTP_TTL_MINUTES = 10;
 const OTP_MAX_ATTEMPTS = 5;
 const OTP_MAX_PER_HOUR = 5;
+const OTP_RESEND_COOLDOWN_SECONDS = 60;
 
-/** Normalize any common Pakistani mobile format to +923XXXXXXXXX, or null if invalid. */
-export function normalizePkPhone(input: string): string | null {
-  const digits = input.replace(/[\s\-()]/g, "");
-  let rest: string | null = null;
-  if (/^\+923\d{9}$/.test(digits)) rest = digits.slice(3);
-  else if (/^00923\d{9}$/.test(digits)) rest = digits.slice(4);
-  else if (/^923\d{9}$/.test(digits)) rest = digits.slice(2);
-  else if (/^03\d{9}$/.test(digits)) rest = digits.slice(1);
-  return rest ? `+92${rest}` : null;
+export type OtpPurpose = "verify_email" | "reset_password";
+
+// ---------- Passwords (node:crypto scrypt — no external dependency) ----------
+
+const SCRYPT_KEYLEN = 64;
+
+export function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, SCRYPT_KEYLEN).toString("hex");
+  return `${salt}:${hash}`;
 }
+
+export function verifyPassword(password: string, stored: string): boolean {
+  const [salt, hash] = stored.split(":");
+  if (!salt || !hash) return false;
+  const candidate = scryptSync(password, salt, SCRYPT_KEYLEN);
+  const storedBuffer = Buffer.from(hash, "hex");
+  if (candidate.length !== storedBuffer.length) return false;
+  return timingSafeEqual(candidate, storedBuffer);
+}
+
+// ---------- Email OTP (verification + password reset) ----------
 
 function hashCode(code: string) {
   return createHash("sha256").update(code).digest("hex");
 }
 
-/** Local dev fallback (no real SMS provider) — code is generated and hashed here,
- * and delivered via the console adapter in @/lib/sms. Used only when OTP_DEV_MODE=true. */
-async function createLocalOtpChallenge(
-  phone: string,
+export async function createEmailOtpChallenge(
+  email: string,
+  purpose: OtpPurpose,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const [last] = await db
+    .select()
+    .from(otpChallenges)
+    .where(and(eq(otpChallenges.email, email), eq(otpChallenges.purpose, purpose)))
+    .orderBy(desc(otpChallenges.createdAt))
+    .limit(1);
+
+  if (last) {
+    const elapsedMs = Date.now() - last.createdAt.getTime();
+    if (elapsedMs < OTP_RESEND_COOLDOWN_SECONDS * 1000) {
+      const waitSeconds = OTP_RESEND_COOLDOWN_SECONDS - Math.floor(elapsedMs / 1000);
+      return { ok: false, error: `Please wait ${waitSeconds}s before requesting another code.` };
+    }
+  }
+
   const recent = await db
     .select({ count: sql<number>`count(*)` })
     .from(otpChallenges)
     .where(
       and(
-        eq(otpChallenges.phone, phone),
+        eq(otpChallenges.email, email),
+        eq(otpChallenges.purpose, purpose),
         gt(otpChallenges.createdAt, sql`now() - interval '1 hour'`),
       ),
     );
@@ -48,28 +75,28 @@ async function createLocalOtpChallenge(
 
   const code = randomInt(100000, 1000000).toString();
   await db.insert(otpChallenges).values({
-    phone,
+    email,
+    purpose,
     codeHash: hashCode(code),
     expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000),
   });
 
-  await sendSms(
-    phone,
-    `Your SeedhiDeal verification code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`,
-  );
+  await sendOtpEmail(email, code, purpose);
   return { ok: true };
 }
 
-async function verifyLocalOtp(
-  phone: string,
+export async function verifyEmailOtp(
+  email: string,
   code: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+  purpose: OtpPurpose,
+): Promise<{ ok: true; challengeId: string } | { ok: false; error: string }> {
   const [challenge] = await db
     .select()
     .from(otpChallenges)
     .where(
       and(
-        eq(otpChallenges.phone, phone),
+        eq(otpChallenges.email, email),
+        eq(otpChallenges.purpose, purpose),
         isNull(otpChallenges.consumedAt),
         gt(otpChallenges.expiresAt, new Date()),
       ),
@@ -93,47 +120,86 @@ async function verifyLocalOtp(
     .update(otpChallenges)
     .set({ consumedAt: new Date() })
     .where(eq(otpChallenges.id, challenge.id));
-  return { ok: true };
+  return { ok: true, challengeId: challenge.id };
 }
 
-const isDevOtp = () => process.env.OTP_DEV_MODE === "true";
+// ---------- Users ----------
 
-export async function createOtpChallenge(
-  phone: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  return isDevOtp() ? createLocalOtpChallenge(phone) : twilioStartVerification(phone);
+export type SessionUser = typeof users.$inferSelect;
+
+export async function getUserByEmail(email: string): Promise<SessionUser | null> {
+  const [user] = await db.select().from(users).where(eq(users.email, email));
+  return user ?? null;
 }
 
-export async function verifyOtpAndSignIn(
-  phone: string,
-  code: string,
-  acceptedTerms: boolean,
-): Promise<{ ok: true; isNewUser: boolean } | { ok: false; error: string }> {
-  const verified = isDevOtp()
-    ? await verifyLocalOtp(phone, code)
-    : await twilioCheckVerification(phone, code);
-  if (!verified.ok) return verified;
+export async function createUserWithPassword(params: {
+  email: string;
+  passwordHash: string;
+  displayName: string;
+}): Promise<SessionUser> {
+  const [user] = await db
+    .insert(users)
+    .values({
+      email: params.email,
+      passwordHash: params.passwordHash,
+      displayName: params.displayName,
+      termsVersion: TERMS_VERSION,
+      termsAcceptedAt: new Date(),
+    })
+    .returning();
+  return user;
+}
 
-  // One verified phone = one account (ACC-02)
-  let [user] = await db.select().from(users).where(eq(users.phone, phone));
-  let isNewUser = false;
-  if (!user) {
-    [user] = await db.insert(users).values({ phone }).returning();
-    isNewUser = true;
-  }
-  if (user.status === "deactivated")
-    return { ok: false, error: "This account is deactivated. Contact support." };
+export async function markEmailVerified(userId: string): Promise<void> {
+  await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, userId));
+}
 
-  if (acceptedTerms && user.termsVersion !== TERMS_VERSION) {
-    await db
+/** Find a user by Google's stable subject id, falling back to email (and linking the
+ * Google id onto that account). Creates a new user if neither match. Google emails
+ * are pre-verified, so a freshly created or newly linked account is marked verified. */
+export async function findOrCreateGoogleUser(params: {
+  googleId: string;
+  email: string;
+  displayName?: string;
+  avatarUrl?: string;
+}): Promise<{ user: SessionUser; isNewUser: boolean }> {
+  const [byGoogleId] = await db.select().from(users).where(eq(users.googleId, params.googleId));
+  if (byGoogleId) return { user: byGoogleId, isNewUser: false };
+
+  const [byEmail] = await db.select().from(users).where(eq(users.email, params.email));
+  if (byEmail) {
+    const [linked] = await db
       .update(users)
-      .set({ termsVersion: TERMS_VERSION, termsAcceptedAt: new Date() })
-      .where(eq(users.id, user.id));
+      .set({ googleId: params.googleId, emailVerifiedAt: byEmail.emailVerifiedAt ?? new Date() })
+      .where(eq(users.id, byEmail.id))
+      .returning();
+    return { user: linked, isNewUser: false };
   }
 
+  const [created] = await db
+    .insert(users)
+    .values({
+      googleId: params.googleId,
+      email: params.email,
+      displayName: params.displayName,
+      avatarUrl: params.avatarUrl,
+      emailVerifiedAt: new Date(),
+    })
+    .returning();
+  return { user: created, isNewUser: true };
+}
+
+// ---------- Sessions ----------
+
+/** Issues a session cookie for an already-authenticated user. Shared by password
+ * sign-in, post-email-verification sign-in, and the Google OAuth bridge — this is
+ * the single place a session gets created, everything else (getSessionUser, isStaff,
+ * the 40+ pages/actions that gate on them) is unchanged regardless of how the user
+ * got here. */
+export async function createSessionForUser(userId: string): Promise<void> {
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
-  await db.insert(sessions).values({ token, userId: user.id, expiresAt });
+  await db.insert(sessions).values({ token, userId, expiresAt });
 
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, token, {
@@ -143,10 +209,7 @@ export async function verifyOtpAndSignIn(
     path: "/",
     expires: expiresAt,
   });
-  return { ok: true, isNewUser };
 }
-
-export type SessionUser = typeof users.$inferSelect;
 
 export async function getSessionUser(): Promise<SessionUser | null> {
   const cookieStore = await cookies();

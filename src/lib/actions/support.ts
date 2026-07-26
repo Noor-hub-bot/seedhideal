@@ -16,7 +16,7 @@ export async function createTicketAction(
   formData: FormData,
 ): Promise<TicketFormState> {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard/support/new");
+  if (!user) redirect("/sign-in?next=/dashboard/support/new");
 
   const subject = String(formData.get("subject") ?? "").trim().slice(0, 200);
   const severity = String(formData.get("severity") ?? "standard");

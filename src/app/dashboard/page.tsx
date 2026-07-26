@@ -20,7 +20,7 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardOverviewPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard");
+  if (!user) redirect("/sign-in?next=/dashboard");
 
   const [
     [latestVerification],

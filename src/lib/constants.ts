@@ -100,6 +100,6 @@ export const SORT_OPTIONS = [
 export const MIN_PHOTOS = 3;
 export const MAX_PHOTOS = 8;
 
-// Bump this when Terms of Service content changes — users who accepted an older version
-// are asked to re-accept on their next sign-in (see requestOtpAction / signin-form.tsx).
+// Bump this when Terms of Service content changes — new signups accept the current
+// version immediately (see signUpAction).
 export const TERMS_VERSION = "2026-07-23";

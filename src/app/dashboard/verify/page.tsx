@@ -12,7 +12,7 @@ const RESUBMIT_STATUSES = new Set(["rejected", "action_required", "expired"]);
 
 export default async function VerifyPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard/verify");
+  if (!user) redirect("/sign-in?next=/dashboard/verify");
 
   const [latest] = await db
     .select()

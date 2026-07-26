@@ -18,7 +18,7 @@ export default async function InquiryThreadPage({
 }) {
   const { id } = await params;
   const viewer = await getSessionUser();
-  if (!viewer) redirect(`/signin?next=/dashboard/inquiries/${id}`);
+  if (!viewer) redirect(`/sign-in?next=/dashboard/inquiries/${id}`);
 
   const [row] = await db
     .select({ inquiry: inquiries, listing: listings, buyer: users })

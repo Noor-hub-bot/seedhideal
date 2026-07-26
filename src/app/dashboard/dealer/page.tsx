@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Dealer profile" };
 
 export default async function DealerDashboardPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard/dealer");
+  if (!user) redirect("/sign-in?next=/dashboard/dealer");
 
   const [[profile], [{ activeCount }]] = await Promise.all([
     db.select().from(dealerProfiles).where(eq(dealerProfiles.userId, user.id)),

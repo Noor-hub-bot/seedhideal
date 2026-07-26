@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Saved listings" };
 
 export default async function FavoritesPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard/favorites");
+  if (!user) redirect("/sign-in?next=/dashboard/favorites");
 
   const saved = await db
     .select({ listing: listings })

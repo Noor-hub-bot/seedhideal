@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Recently viewed" };
 
 export default async function RecentlyViewedPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard/recently-viewed");
+  if (!user) redirect("/sign-in?next=/dashboard/recently-viewed");
 
   const rows = await db
     .select()

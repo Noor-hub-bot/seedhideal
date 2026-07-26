@@ -36,7 +36,7 @@ export function ReportForm({
   if (!signedIn) {
     return (
       <Link
-        href={`/signin?next=${encodeURIComponent(pathname)}`}
+        href={`/sign-in?next=${encodeURIComponent(pathname)}`}
         className="text-[13px] font-semibold text-muted hover:text-foreground"
       >
         Sign in to report a concern

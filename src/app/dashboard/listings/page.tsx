@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "My listings" };
 
 export default async function MyListingsPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard/listings");
+  if (!user) redirect("/sign-in?next=/dashboard/listings");
 
   const myListings = await db
     .select()

@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "New support ticket" };
 
 export default async function NewTicketPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard/support/new");
+  if (!user) redirect("/sign-in?next=/dashboard/support/new");
 
   return (
     <div className="mx-auto max-w-lg px-4 py-10">

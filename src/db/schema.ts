@@ -68,6 +68,8 @@ export const assemblyType = pgEnum("assembly_type", ["local", "imported"]);
 
 export const reviewStatus = pgEnum("review_status", ["pending", "approved", "rejected"]);
 
+export const otpPurpose = pgEnum("otp_purpose", ["verify_email", "reset_password"]);
+
 export const boostStatus = pgEnum("boost_status", ["pending", "active", "expired", "cancelled"]);
 
 export const fuelType = pgEnum("fuel_type", [
@@ -170,9 +172,17 @@ export const ticketStatus = pgEnum("ticket_status", [
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
-  phone: varchar("phone", { length: 16 }).notNull().unique(), // normalized +923XXXXXXXXX
+  // Primary identity going forward. Nullable at the DB level only because pre-migration
+  // phone-only test rows have none — every new signup/Google/reset path always sets it.
+  email: varchar("email", { length: 255 }).unique(),
+  passwordHash: text("password_hash"), // null for Google-only accounts
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  googleId: varchar("google_id", { length: 64 }).unique(),
+  // Optional profile field only — no longer used for authentication.
+  phone: varchar("phone", { length: 16 }).unique(),
   displayName: varchar("display_name", { length: 100 }),
   city: varchar("city", { length: 64 }),
+  avatarUrl: text("avatar_url"),
   language: varchar("language", { length: 8 }).default("en"),
   role: userRole("role").notNull().default("user"),
   status: userStatus("status").notNull().default("active"),
@@ -185,14 +195,15 @@ export const otpChallenges = pgTable(
   "otp_challenges",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    phone: varchar("phone", { length: 16 }).notNull(),
+    email: varchar("email", { length: 255 }).notNull(),
+    purpose: otpPurpose("purpose").notNull(),
     codeHash: varchar("code_hash", { length: 64 }).notNull(),
     attempts: integer("attempts").notNull().default(0),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("otp_phone_idx").on(t.phone)],
+  (t) => [index("otp_email_purpose_idx").on(t.email, t.purpose)],
 );
 
 export const sessions = pgTable(

@@ -90,7 +90,7 @@ export async function submitListingAction(
   formData: FormData,
 ): Promise<ListingFormState> {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/sell");
+  if (!user) redirect("/sign-in?next=/sell");
   if (user.status !== "active") return { error: "Your account cannot list right now. Contact support." };
 
   const parsed = listingSchema.safeParse(Object.fromEntries(formData));
@@ -268,7 +268,7 @@ async function transitionListing(
 
 export async function markListingSoldAction(formData: FormData): Promise<void> {
   const user = await getSessionUser();
-  if (!user) redirect("/signin");
+  if (!user) redirect("/sign-in");
   const listingId = String(formData.get("listingId"));
   const listing = await loadOwnedListing(listingId, user.id);
   if (!listing || !["active", "paused"].includes(listing.status)) return;
@@ -302,7 +302,7 @@ export async function markListingSoldAction(formData: FormData): Promise<void> {
 
 export async function pauseListingAction(formData: FormData): Promise<void> {
   const user = await getSessionUser();
-  if (!user) redirect("/signin");
+  if (!user) redirect("/sign-in");
   const listingId = String(formData.get("listingId"));
   const listing = await loadOwnedListing(listingId, user.id);
   if (!listing || listing.status !== "active") return;
@@ -312,7 +312,7 @@ export async function pauseListingAction(formData: FormData): Promise<void> {
 
 export async function resumeListingAction(formData: FormData): Promise<void> {
   const user = await getSessionUser();
-  if (!user) redirect("/signin");
+  if (!user) redirect("/sign-in");
   const listingId = String(formData.get("listingId"));
   const listing = await loadOwnedListing(listingId, user.id);
   if (!listing || listing.status !== "paused") return;
@@ -331,7 +331,7 @@ const WITHDRAWABLE_STATES = new Set([
 
 export async function withdrawListingAction(formData: FormData): Promise<void> {
   const user = await getSessionUser();
-  if (!user) redirect("/signin");
+  if (!user) redirect("/sign-in");
   const listingId = String(formData.get("listingId"));
   const listing = await loadOwnedListing(listingId, user.id);
   if (!listing || !WITHDRAWABLE_STATES.has(listing.status)) return;
@@ -349,7 +349,7 @@ export async function sendInquiryAction(
 ): Promise<InquiryFormState> {
   const user = await getSessionUser();
   const listingId = String(formData.get("listingId"));
-  if (!user) redirect(`/signin?next=/cars/${listingId}`);
+  if (!user) redirect(`/sign-in?next=/cars/${listingId}`);
 
   const intent = String(formData.get("intent"));
   const body = String(formData.get("body") ?? "").trim();

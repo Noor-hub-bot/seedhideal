@@ -28,7 +28,7 @@ export default async function TicketThreadPage({
 }) {
   const { id } = await params;
   const viewer = await getSessionUser();
-  if (!viewer) redirect(`/signin?next=/dashboard/support/${id}`);
+  if (!viewer) redirect(`/sign-in?next=/dashboard/support/${id}`);
 
   const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, id));
   if (!ticket) notFound();

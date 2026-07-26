@@ -10,7 +10,7 @@ import { DashboardNav } from "@/components/dashboard/dashboard-nav";
 // not a second competing container — to avoid double-wrapping their layout.
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard");
+  if (!user) redirect("/sign-in?next=/dashboard");
 
   const [profile, dealerListing] = await Promise.all([
     db.select({ id: dealerProfiles.id }).from(dealerProfiles).where(eq(dealerProfiles.userId, user.id)),

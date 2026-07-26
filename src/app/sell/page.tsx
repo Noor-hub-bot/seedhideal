@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Sell your car" };
 
 export default async function SellPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/sell");
+  if (!user) redirect("/sign-in?next=/sell");
 
   const blocking = await getBlockingListing(user.id);
 

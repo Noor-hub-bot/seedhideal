@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Messages" };
 
 export default async function MessagesPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard/messages");
+  if (!user) redirect("/sign-in?next=/dashboard/messages");
 
   const myListingIds = (
     await db.select({ id: listings.id }).from(listings).where(eq(listings.sellerId, user.id))

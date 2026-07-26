@@ -22,7 +22,7 @@ export async function submitVerificationAction(
   formData: FormData,
 ): Promise<VerificationFormState> {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard/verify");
+  if (!user) redirect("/sign-in?next=/dashboard/verify");
 
   const relationship = String(formData.get("relationship") ?? "");
   if (!RELATIONSHIPS.has(relationship)) {

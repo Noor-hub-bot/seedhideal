@@ -21,7 +21,7 @@ const STATUS_TONE: Record<string, "review" | "verified" | "neutral"> = {
 
 export default async function MyReviewsPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard/reviews");
+  if (!user) redirect("/sign-in?next=/dashboard/reviews");
 
   const myReviews = await db
     .select()

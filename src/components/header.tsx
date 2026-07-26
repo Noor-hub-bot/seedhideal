@@ -63,7 +63,7 @@ export async function Header() {
             </>
           ) : (
             <Link
-              href="/signin"
+              href="/sign-in"
               className="hidden text-[15px] font-semibold text-foreground lg:block"
             >
               Login / Sign up

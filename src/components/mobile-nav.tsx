@@ -89,7 +89,7 @@ export function MobileNav({
               </form>
             ) : (
               <Link
-                href="/signin"
+                href="/sign-in"
                 className="text-[15px] font-semibold text-foreground"
                 onClick={close}
               >

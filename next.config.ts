@@ -58,7 +58,10 @@ const nextConfig: NextConfig = {
     dangerouslyAllowSVG: true,
     contentDispositionType: "attachment",
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    remotePatterns: storagePublicUrl ? [new URL(`${storagePublicUrl}/**`)] : [],
+    remotePatterns: [
+      ...(storagePublicUrl ? [new URL(`${storagePublicUrl}/**`)] : []),
+      new URL("https://lh3.googleusercontent.com/**"), // Google account profile photos
+    ],
   },
   experimental: {
     serverActions: {

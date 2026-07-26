@@ -22,7 +22,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default async function SupportListPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard/support");
+  if (!user) redirect("/sign-in?next=/dashboard/support");
 
   const tickets = await db
     .select()

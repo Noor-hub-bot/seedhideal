@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Notifications" };
 
 export default async function NotificationsPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard/notifications");
+  if (!user) redirect("/sign-in?next=/dashboard/notifications");
 
   const myNotifications = await db
     .select()

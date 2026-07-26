@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Write a review" };
 
 export default async function NewReviewPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/reviews/new");
+  if (!user) redirect("/sign-in?next=/reviews/new");
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10">

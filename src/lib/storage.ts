@@ -123,6 +123,32 @@ export async function uploadDealerAsset(
   return `${PUBLIC_URL_BASE!.replace(/\/$/, "")}/${key}`;
 }
 
+/** Uploads a user's profile avatar and returns its public URL. Mirrors
+ * uploadListingPhoto/uploadDealerAsset exactly — same bucket, own key prefix. */
+export async function uploadAvatar(file: File, userId: string): Promise<string> {
+  const ext = EXT_BY_TYPE[file.type];
+  const key = `avatars/${userId}/${randomUUID()}.${ext}`;
+  const body = new Uint8Array(await file.arrayBuffer());
+
+  if (useLocalFallback) {
+    const filePath = path.join(process.cwd(), "public", "uploads", key);
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, body);
+    return `/uploads/${key}`;
+  }
+
+  await client!.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: body,
+      ContentType: file.type,
+    }),
+  );
+
+  return `${PUBLIC_URL_BASE!.replace(/\/$/, "")}/${key}`;
+}
+
 function privateLocalPath(key: string): string {
   return path.join(process.cwd(), "private-uploads", key);
 }

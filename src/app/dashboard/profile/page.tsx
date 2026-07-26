@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Profile" };
 
 export default async function ProfilePage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard/profile");
+  if (!user) redirect("/sign-in?next=/dashboard/profile");
 
   return (
     <div className="mx-auto max-w-2xl px-4 pb-10">

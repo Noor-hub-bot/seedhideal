@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Saved searches" };
 
 export default async function SavedSearchesPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard/searches");
+  if (!user) redirect("/sign-in?next=/dashboard/searches");
 
   const mySearches = await db
     .select()

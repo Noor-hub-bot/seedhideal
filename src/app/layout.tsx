@@ -4,6 +4,7 @@ import "./globals.css";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { CompareTray } from "@/components/compare-tray";
+import { SiteChrome } from "@/components/site-chrome";
 
 // Brand fonts per the SeedhiDeal Design System v1.0:
 // Newsreader (headlines, prices, wordmark) + Inter (UI and body)
@@ -40,10 +41,9 @@ export default function RootLayout({
       className={`${inter.variable} ${newsreader.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
-        <CompareTray />
+        <SiteChrome header={<Header />} footer={<Footer />} compareTray={<CompareTray />}>
+          {children}
+        </SiteChrome>
       </body>
     </html>
   );

@@ -24,7 +24,7 @@ const ACTION_LABEL: Record<string, string> = {
 // user performed — no new schema needed.
 export default async function ActivityPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/signin?next=/dashboard/activity");
+  if (!user) redirect("/sign-in?next=/dashboard/activity");
 
   const activity = await db
     .select()

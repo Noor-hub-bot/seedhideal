@@ -22,7 +22,7 @@ export function FavoriteButton({
   if (!signedIn) {
     return (
       <Link
-        href={`/signin?next=${encodeURIComponent(nextHref)}`}
+        href={`/sign-in?next=${encodeURIComponent(nextHref)}`}
         aria-label="Sign in to save this listing"
         className={`${base} text-muted ${className}`}
       >
