@@ -118,6 +118,37 @@ export function ChevronLeftIcon({ className }: IconProps) {
   );
 }
 
+// Abstract "verified" mark (rounded shield + check) — the SeedhiDeal auth-flow
+// brand mark, shared by the Splash and Welcome screens for a consistent first
+// impression independent of the Poppins wordmark.
+export function BrandMarkIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" className={className} aria-hidden>
+      <path
+        d="M24 4 8 10v11c0 10.5 6.8 18.7 16 21 9.2-2.3 16-10.5 16-21V10L24 4Z"
+        fill="currentColor"
+        fillOpacity="0.14"
+      />
+      <path
+        d="M24 4 8 10v11c0 10.5 6.8 18.7 16 21 9.2-2.3 16-10.5 16-21V10L24 4Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path d="M17 24.5 22 29.5 32 18.5" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function KeyIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden>
+      <circle cx="7" cy="13" r="3.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M9.4 10.6 16 4M14 6l1.8 1.8M11.7 8.3l1.8 1.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function GoogleIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 20 20" className={className} aria-hidden>

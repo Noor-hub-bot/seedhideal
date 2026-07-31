@@ -69,8 +69,8 @@ export function OtpForm({
   const ss = String(seconds % 60).padStart(2, "0");
 
   return (
-    <div className="space-y-5">
-      <form action={formAction} className="space-y-5">
+    <div className="space-y-6">
+      <form action={formAction} className="space-y-6">
         <input type="hidden" name="email" value={email} />
         <input type="hidden" name="code" value={code} />
         <div className="flex justify-between gap-2">
@@ -88,7 +88,9 @@ export function OtpForm({
               autoComplete="one-time-code"
               maxLength={1}
               aria-label={`Digit ${i + 1}`}
-              className="h-13 w-11 rounded-xl border border-slate-200 text-center text-xl font-semibold text-[#0F172A] focus:border-[#14BBA4] focus:outline-none focus:ring-2 focus:ring-[#14BBA4]/30 sm:h-14 sm:w-12"
+              className={`h-14 w-11 rounded-[16px] border text-center text-xl font-semibold text-[#111827] transition-all duration-150 focus:outline-none focus:ring-4 focus:ring-[#14B8A6]/18 sm:w-12 ${
+                d ? "border-[#0F766E] bg-[#14B8A6]/[0.06]" : "border-[#E5E7EB] bg-white"
+              }`}
             />
           ))}
         </div>
@@ -100,7 +102,7 @@ export function OtpForm({
         </AuthButton>
       </form>
 
-      <div className="text-center text-sm text-slate-500">
+      <div className="text-center text-[15px] text-[#6B7280]">
         {seconds > 0 ? (
           <span>
             Resend code in {mm}:{ss}
@@ -109,12 +111,14 @@ export function OtpForm({
           <form action={resendAction} className="inline">
             <input type="hidden" name="email" value={email} />
             <input type="hidden" name="purpose" value={purpose} />
-            <button type="submit" disabled={resendPending} className="font-semibold text-[#14BBA4] hover:text-[#109c88]">
+            <button type="submit" disabled={resendPending} className="font-semibold text-[#0F766E] hover:text-[#0D9488]">
               {resendPending ? "Sending…" : "Resend Code"}
             </button>
           </form>
         )}
-        <AuthErrorText>{resendState.error}</AuthErrorText>
+        <div className="mt-3">
+          <AuthErrorText>{resendState.error}</AuthErrorText>
+        </div>
       </div>
     </div>
   );

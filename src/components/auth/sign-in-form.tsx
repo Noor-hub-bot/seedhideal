@@ -10,8 +10,8 @@ export function SignInForm({ next }: { next?: string }) {
   const [state, formAction, pending] = useActionState<AuthActionState, FormData>(signInAction, {});
 
   return (
-    <div className="space-y-5">
-      <form action={formAction} className="space-y-5">
+    <div className="space-y-6">
+      <form action={formAction} className="space-y-6">
         {next && <input type="hidden" name="next" value={next} />}
         <AuthInput
           label="Email Address"
@@ -30,8 +30,8 @@ export function SignInForm({ next }: { next?: string }) {
             autoComplete="current-password"
             required
           />
-          <div className="mt-1.5 text-right">
-            <Link href="/forgot-password" className="text-sm font-semibold text-[#14BBA4] hover:text-[#109c88]">
+          <div className="mt-2 text-right">
+            <Link href="/forgot-password" className="text-sm font-semibold text-[#0F766E] hover:text-[#0D9488]">
               Forgot Password?
             </Link>
           </div>
@@ -44,6 +44,7 @@ export function SignInForm({ next }: { next?: string }) {
         </AuthButton>
       </form>
 
+      {/* Google sits below the primary Sign In action, never beside/above it. */}
       <AuthDivider />
 
       <form action={signInWithGoogleAction}>
@@ -53,9 +54,9 @@ export function SignInForm({ next }: { next?: string }) {
         </AuthButton>
       </form>
 
-      <p className="mt-2 text-center text-sm text-slate-500">
+      <p className="mt-2 text-center text-[15px] text-[#6B7280]">
         Don&apos;t have an account?{" "}
-        <Link href="/sign-up" className="font-semibold text-[#14BBA4] hover:text-[#109c88]">
+        <Link href="/sign-up" className="font-semibold text-[#0F766E] hover:text-[#0D9488]">
           Sign Up
         </Link>
       </p>

@@ -10,8 +10,8 @@ export function SignUpForm() {
   const [state, formAction, pending] = useActionState<AuthActionState, FormData>(signUpAction, {});
 
   return (
-    <div className="space-y-5">
-      <form action={formAction} className="space-y-5">
+    <div className="space-y-6">
+      <form action={formAction} className="space-y-6">
         <AuthInput
           label="Full Name"
           name="fullName"
@@ -46,11 +46,11 @@ export function SignUpForm() {
 
         <AuthCheckbox name="acceptTerms" required>
           I agree to the{" "}
-          <Link href="/terms" target="_blank" className="font-semibold text-[#0F172A] hover:text-[#14BBA4]">
+          <Link href="/terms" target="_blank" className="font-semibold text-[#0F172A] hover:text-[#0F766E]">
             Terms of Service
           </Link>{" "}
           and{" "}
-          <Link href="/privacy" target="_blank" className="font-semibold text-[#0F172A] hover:text-[#14BBA4]">
+          <Link href="/privacy" target="_blank" className="font-semibold text-[#0F172A] hover:text-[#0F766E]">
             Privacy Policy
           </Link>
         </AuthCheckbox>
@@ -62,6 +62,7 @@ export function SignUpForm() {
         </AuthButton>
       </form>
 
+      {/* Google sits below the primary Create Account action, never beside/above it. */}
       <AuthDivider />
 
       <form action={signInWithGoogleAction}>
@@ -71,9 +72,9 @@ export function SignUpForm() {
         </AuthButton>
       </form>
 
-      <p className="mt-2 text-center text-sm text-slate-500">
+      <p className="mt-2 text-center text-[15px] text-[#6B7280]">
         Already have an account?{" "}
-        <Link href="/sign-in" className="font-semibold text-[#14BBA4] hover:text-[#109c88]">
+        <Link href="/sign-in" className="font-semibold text-[#0F766E] hover:text-[#0D9488]">
           Sign In
         </Link>
       </p>

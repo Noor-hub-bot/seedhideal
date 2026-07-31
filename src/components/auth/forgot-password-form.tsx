@@ -9,7 +9,7 @@ export function ForgotPasswordForm() {
   const [state, formAction, pending] = useActionState<AuthActionState, FormData>(forgotPasswordAction, {});
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form action={formAction} className="space-y-6">
       <AuthInput
         label="Email Address"
         name="email"

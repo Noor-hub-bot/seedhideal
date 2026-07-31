@@ -16,7 +16,7 @@ export function NewPasswordForm() {
   const [password, setPassword] = useState("");
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form action={formAction} className="space-y-6">
       <AuthPasswordInput
         label="New Password"
         name="password"
@@ -34,15 +34,15 @@ export function NewPasswordForm() {
         required
       />
 
-      <ul className="space-y-1.5">
+      <ul className="space-y-2 rounded-[16px] bg-[#F8FAFC] p-4">
         {RULES.map((rule) => {
           const met = rule.test(password);
           return (
             <li
               key={rule.label}
-              className={`flex items-center gap-2 text-sm ${met ? "text-[#14BBA4]" : "text-slate-400"}`}
+              className={`flex items-center gap-2 text-sm transition-colors ${met ? "text-[#0F766E]" : "text-[#9CA3AF]"}`}
             >
-              <CheckCircleIcon className="h-4 w-4" />
+              <CheckCircleIcon className={`h-4 w-4 shrink-0 ${met ? "sd-anim-pop" : ""}`} />
               {rule.label}
             </li>
           );

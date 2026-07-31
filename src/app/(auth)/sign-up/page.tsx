@@ -13,7 +13,9 @@ export default async function SignUpPage() {
   return (
     <AuthCard>
       <AuthBackLink href="/welcome" />
-      <p className="mb-1 font-[family-name:var(--font-poppins)] text-lg font-bold text-[#0F172A]">SeedhiDeal</p>
+      <p className="mb-2 font-[family-name:var(--font-poppins)] text-lg font-bold tracking-[-0.01em] text-[#0F172A]">
+        SeedhiDeal
+      </p>
       <AuthHeading subtitle="Join SeedhiDeal today">Create Your Account</AuthHeading>
       <SignUpForm />
     </AuthCard>
