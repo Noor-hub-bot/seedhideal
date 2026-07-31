@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui";
-import { HeaderSearchForm } from "@/components/header-search";
+import { SearchBar } from "@/components/search-bar";
 import { NavLink } from "@/components/nav-link";
 
 const navLink =
@@ -73,7 +73,7 @@ export function MobileNav({
             )}
           </nav>
 
-          <HeaderSearchForm className="mb-5" />
+          <SearchBar variant="compact" className="mb-5" />
 
           <div className="flex flex-col gap-3">
             <ButtonLink href="/sell" className="shadow-sm" onClick={close}>

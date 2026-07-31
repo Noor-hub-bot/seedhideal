@@ -5,7 +5,7 @@ import { desc, eq } from "drizzle-orm";
 import { db, listingPhotos, listings } from "@/db";
 import { Badge, ButtonLink, Card, Heading } from "@/components/ui";
 import { formatKm, formatPkr } from "@/lib/format";
-import { HeroSearch } from "@/components/home/hero-search";
+import { SearchBar } from "@/components/search-bar";
 import { BrandGrid } from "@/components/home/brand-grid";
 import { BodyTypeGrid } from "@/components/home/body-type-grid";
 import { BudgetGrid } from "@/components/home/budget-grid";
@@ -226,7 +226,7 @@ export default async function LandingPage() {
 
       {/* SEARCH BAR */}
       <section className="mx-auto max-w-6xl px-6 pb-14">
-        <HeroSearch />
+        <SearchBar variant="expanded" />
       </section>
 
       <Suspense fallback={<SkeletonSection><SkeletonGrid tiles={6} /></SkeletonSection>}>
