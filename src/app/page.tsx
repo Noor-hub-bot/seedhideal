@@ -15,6 +15,7 @@ import { FeaturedCarRail } from "@/components/home/featured-car-rail";
 import { VerifiedSellers } from "@/components/home/verified-sellers";
 import { FeaturedDealers } from "@/components/home/featured-dealers";
 import { ReviewsSection } from "@/components/home/reviews-section";
+import { SocialProof } from "@/components/home/social-proof";
 import { StatisticsBand } from "@/components/home/statistics-band";
 import { WhySeedhiDeal } from "@/components/home/why-seedhideal";
 import { DownloadApp } from "@/components/home/download-app";
@@ -257,13 +258,18 @@ export default async function LandingPage() {
         <VerifiedSellers />
       </Suspense>
 
-      <Suspense fallback={null}>
-        <FeaturedDealers />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <ReviewsSection />
-      </Suspense>
+      <SocialProof
+        dealers={
+          <Suspense fallback={null}>
+            <FeaturedDealers />
+          </Suspense>
+        }
+        reviews={
+          <Suspense fallback={null}>
+            <ReviewsSection />
+          </Suspense>
+        }
+      />
 
       <Suspense fallback={<SkeletonBand className="h-32" />}>
         <StatisticsBand />
