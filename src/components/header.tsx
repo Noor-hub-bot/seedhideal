@@ -4,6 +4,7 @@ import { signOutAction } from "@/lib/actions/auth";
 import { ButtonLink } from "@/components/ui";
 import { HeaderLogo } from "@/components/logo";
 import { MobileNav } from "@/components/mobile-nav";
+import { NavLink } from "@/components/nav-link";
 import { CITIES } from "@/lib/constants";
 
 const navLink =
@@ -20,21 +21,21 @@ export async function Header() {
             <HeaderLogo />
           </Link>
           <nav className="hidden items-center gap-7 lg:flex">
-            <Link href="/cars" className={navLink}>
+            <NavLink href="/cars" className={navLink}>
               Browse Cars
-            </Link>
-            <Link href="/dealers" className={navLink}>
+            </NavLink>
+            <NavLink href="/dealers" className={navLink}>
               Dealers
-            </Link>
-            <Link href="/sell" className={navLink}>
+            </NavLink>
+            <NavLink href="/sell" className={navLink}>
               Sell Car
-            </Link>
+            </NavLink>
             <Link href="/#how-it-works" className={navLink}>
               How It Works
             </Link>
-            <Link href="/help" className={navLink}>
+            <NavLink href="/help" className={navLink}>
               Help
-            </Link>
+            </NavLink>
           </nav>
         </div>
 

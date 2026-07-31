@@ -35,13 +35,27 @@ export function SiteChrome({
   const isAuthRoute = AUTH_ROUTE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   if (isAuthRoute) {
-    return <main className="flex-1">{children}</main>;
+    return (
+      <main id="main-content" className="flex-1">
+        {children}
+      </main>
+    );
   }
 
   return (
     <>
+      {/* Visually hidden until focused — lets keyboard users bypass the header
+          nav/search bar instead of tabbing through every link on every page. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-brand focus:px-4 focus:py-2.5 focus:text-[15px] focus:font-semibold focus:text-white"
+      >
+        Skip to content
+      </a>
       {header}
-      <main className="flex-1">{children}</main>
+      <main id="main-content" className="flex-1">
+        {children}
+      </main>
       {footer}
       {compareTray}
     </>
