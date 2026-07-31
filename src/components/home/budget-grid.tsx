@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { and, count, eq, gt, gte, isNull, lte, or } from "drizzle-orm";
 import { db, listings } from "@/db";
 import { Card } from "@/components/ui";
@@ -6,28 +7,32 @@ import { SectionHeading } from "./section-heading";
 import { BUDGET_BUCKETS } from "@/lib/constants";
 import { safeSection } from "@/lib/safe-section";
 
-export async function BudgetGrid() {
-  const activeCondition = and(
-    eq(listings.status, "active"),
-    or(isNull(listings.expiresAt), gt(listings.expiresAt, new Date()))!,
-  );
+// Not personalized — safe to cache for 60s, same rationale as BrandGrid.
+const getBudgetCounts = unstable_cache(
+  async () => {
+    const activeCondition = and(
+      eq(listings.status, "active"),
+      or(isNull(listings.expiresAt), gt(listings.expiresAt, new Date()))!,
+    );
+    return Promise.all(
+      BUDGET_BUCKETS.map((b) => {
+        const bounds = [
+          b.min !== undefined ? gte(listings.askingPricePkr, b.min) : undefined,
+          b.max !== undefined ? lte(listings.askingPricePkr, b.max) : undefined,
+        ].filter((c): c is NonNullable<typeof c> => !!c);
+        return db
+          .select({ total: count() })
+          .from(listings)
+          .where(and(activeCondition, ...bounds));
+      }),
+    );
+  },
+  ["home-budget-grid"],
+  { revalidate: 60 },
+);
 
-  const counts = await safeSection(
-    () =>
-      Promise.all(
-        BUDGET_BUCKETS.map((b) => {
-          const bounds = [
-            b.min !== undefined ? gte(listings.askingPricePkr, b.min) : undefined,
-            b.max !== undefined ? lte(listings.askingPricePkr, b.max) : undefined,
-          ].filter((c): c is NonNullable<typeof c> => !!c);
-          return db
-            .select({ total: count() })
-            .from(listings)
-            .where(and(activeCondition, ...bounds));
-        }),
-      ),
-    null,
-  );
+export async function BudgetGrid() {
+  const counts = await safeSection(getBudgetCounts, null);
   if (!counts) return null;
 
   return (

@@ -1,10 +1,12 @@
+import { unstable_cache } from "next/cache";
 import { and, count, countDistinct, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import { db, listings, verificationCases } from "@/db";
 import { Heading } from "@/components/ui";
 import { safeSection } from "@/lib/safe-section";
 
-export async function StatisticsBand() {
-  const stats = await safeSection(async () => {
+// Not personalized — safe to cache for 60s, same rationale as BrandGrid.
+const getStats = unstable_cache(
+  async () => {
     const activeCondition = and(
       eq(listings.status, "active"),
       or(isNull(listings.expiresAt), gt(listings.expiresAt, new Date()))!,
@@ -31,7 +33,13 @@ export async function StatisticsBand() {
       { label: "Cities", value: citiesRow.total },
       { label: "Verified listings", value: verifiedListingsRow.total },
     ];
-  }, null);
+  },
+  ["home-statistics-band"],
+  { revalidate: 60 },
+);
+
+export async function StatisticsBand() {
+  const stats = await safeSection(getStats, null);
 
   if (!stats) return null;
 

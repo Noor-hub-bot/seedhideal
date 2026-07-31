@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { and, count, eq, gt, isNull, or } from "drizzle-orm";
 import { db, listings } from "@/db";
 import { Card } from "@/components/ui";
@@ -6,21 +7,25 @@ import { SectionHeading } from "./section-heading";
 import { BODY_TYPES } from "@/lib/constants";
 import { safeSection } from "@/lib/safe-section";
 
+// Not personalized — safe to cache for 60s, same rationale as BrandGrid.
+const getBodyTypeCounts = unstable_cache(
+  async () =>
+    db
+      .select({ bodyType: listings.bodyType, total: count() })
+      .from(listings)
+      .where(
+        and(
+          eq(listings.status, "active"),
+          or(isNull(listings.expiresAt), gt(listings.expiresAt, new Date()))!,
+        ),
+      )
+      .groupBy(listings.bodyType),
+  ["home-body-type-grid"],
+  { revalidate: 60 },
+);
+
 export async function BodyTypeGrid() {
-  const rows = await safeSection(
-    () =>
-      db
-        .select({ bodyType: listings.bodyType, total: count() })
-        .from(listings)
-        .where(
-          and(
-            eq(listings.status, "active"),
-            or(isNull(listings.expiresAt), gt(listings.expiresAt, new Date()))!,
-          ),
-        )
-        .groupBy(listings.bodyType),
-    [],
-  );
+  const rows = await safeSection(getBodyTypeCounts, []);
   if (rows.length === 0) return null;
   const countByType = new Map(rows.map((r) => [r.bodyType, r.total]));
 

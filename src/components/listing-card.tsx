@@ -118,7 +118,16 @@ function ListingPhoto({
   }
   return (
     <div className={`relative ${className}`}>
-      <Image src={photoUrl} alt={alt} fill className="object-cover" />
+      {/* Card renders at a fixed ~260-280px in the homepage's horizontal rails
+          (CarRailItem) and responsively (up to ~50vw/100vw) in the /cars browse
+          grid — this covers both without needing a per-usage sizes prop. */}
+      <Image
+        src={photoUrl}
+        alt={alt}
+        fill
+        sizes="(min-width: 1024px) 280px, (min-width: 640px) 45vw, 90vw"
+        className="object-cover"
+      />
     </div>
   );
 }

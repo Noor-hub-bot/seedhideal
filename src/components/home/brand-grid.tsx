@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { and, count, eq, gt, isNull, or } from "drizzle-orm";
 import { db, listings } from "@/db";
 import { Card } from "@/components/ui";
@@ -6,24 +7,30 @@ import { SectionHeading } from "./section-heading";
 import { MAKES } from "@/lib/constants";
 import { safeSection } from "@/lib/safe-section";
 
+// Not personalized (no viewer-dependent data), so the whole query is a safe
+// candidate for time-based caching — 60s keeps counts close to live without
+// re-querying on every homepage request.
+const getBrandCounts = unstable_cache(
+  async () =>
+    db
+      .select({ make: listings.make, total: count() })
+      .from(listings)
+      .where(
+        and(
+          eq(listings.status, "active"),
+          or(isNull(listings.expiresAt), gt(listings.expiresAt, new Date()))!,
+        ),
+      )
+      .groupBy(listings.make),
+  ["home-brand-grid"],
+  { revalidate: 60 },
+);
+
 // No real brand-logo assets exist in this project, and sourcing third-party
 // trademarked logos isn't something to do casually — rendered as clean text
 // tiles instead, consistent with the calm/editorial brand voice.
 export async function BrandGrid() {
-  const rows = await safeSection(
-    () =>
-      db
-        .select({ make: listings.make, total: count() })
-        .from(listings)
-        .where(
-          and(
-            eq(listings.status, "active"),
-            or(isNull(listings.expiresAt), gt(listings.expiresAt, new Date()))!,
-          ),
-        )
-        .groupBy(listings.make),
-    [],
-  );
+  const rows = await safeSection(getBrandCounts, []);
   if (rows.length === 0) return null;
   const countByMake = new Map(rows.map((r) => [r.make, r.total]));
 

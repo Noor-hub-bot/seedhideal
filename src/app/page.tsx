@@ -178,6 +178,8 @@ export default async function LandingPage() {
                 src={featuredWithPhoto.featuredPhoto.storageKey}
                 alt={`${featuredWithPhoto.featured.make} ${featuredWithPhoto.featured.model}`}
                 fill
+                priority
+                sizes="(min-width: 1024px) 500px, 100vw"
                 className="object-cover"
               />
             </div>

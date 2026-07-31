@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { and, desc, eq, gt, gte, isNull, or } from "drizzle-orm";
 import { db, listings } from "@/db";
 import { getSessionUser } from "@/lib/auth";
@@ -8,6 +9,27 @@ import { CarRail, CarRailItem } from "./car-rail";
 import { PREMIUM_PRICE_THRESHOLD_PKR } from "@/lib/constants";
 import { safeSection } from "@/lib/safe-section";
 
+// Only the listing rows are cached — `getSessionUser()` and `enrichListings`'s
+// favorites lookup below stay fully dynamic (per-viewer), so personalization
+// (favorited state, signed-in state) is unaffected by this cache.
+const getPremiumListings = unstable_cache(
+  async () =>
+    db
+      .select()
+      .from(listings)
+      .where(
+        and(
+          eq(listings.status, "active"),
+          gte(listings.askingPricePkr, PREMIUM_PRICE_THRESHOLD_PKR),
+          or(isNull(listings.expiresAt), gt(listings.expiresAt, new Date()))!,
+        ),
+      )
+      .orderBy(desc(listings.askingPricePkr))
+      .limit(12),
+  ["home-premium-picks"],
+  { revalidate: 60 },
+);
+
 // Merges the requested "Premium Cars" and "Luxury Cars" sections into one:
 // current makes (Toyota/Honda/Suzuki/Hyundai/Kia/Daihatsu) include no luxury
 // brands, so a brand-based "Luxury" section would almost always be empty.
@@ -15,21 +37,7 @@ import { safeSection } from "@/lib/safe-section";
 // qualifies.
 export async function PremiumPicks() {
   const data = await safeSection(async () => {
-    const [results, viewer] = await Promise.all([
-      db
-        .select()
-        .from(listings)
-        .where(
-          and(
-            eq(listings.status, "active"),
-            gte(listings.askingPricePkr, PREMIUM_PRICE_THRESHOLD_PKR),
-            or(isNull(listings.expiresAt), gt(listings.expiresAt, new Date()))!,
-          ),
-        )
-        .orderBy(desc(listings.askingPricePkr))
-        .limit(12),
-      getSessionUser(),
-    ]);
+    const [results, viewer] = await Promise.all([getPremiumListings(), getSessionUser()]);
     if (results.length === 0) return null;
     const enriched = await enrichListings(results, viewer);
     return { results, viewer, ...enriched };

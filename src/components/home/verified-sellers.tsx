@@ -1,15 +1,17 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { and, count, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import { db, listings, users, verificationCases } from "@/db";
 import { Card } from "@/components/ui";
 import { SectionHeading } from "./section-heading";
 import { safeSection } from "@/lib/safe-section";
 
-// No seller-profile pages exist in this app, so this isn't a mini-directory —
-// a real-data trust band: how many verified sellers there are, plus a
-// handful of them and how many active listings they each have.
-export async function VerifiedSellers() {
-  const data = await safeSection(async () => {
+// Not personalized — safe to cache for 60s, same rationale as BrandGrid.
+// Returns `listingCounts` as a plain array of pairs rather than a Map: Map
+// instances aren't JSON-serializable, so they can't survive unstable_cache's
+// storage round-trip — the Map is reconstructed after the cached read below.
+const getVerifiedSellersData = unstable_cache(
+  async () => {
     const verifiedCases = await db
       .select({ userId: verificationCases.userId })
       .from(verificationCases)
@@ -40,11 +42,25 @@ export async function VerifiedSellers() {
       .sort((a, b) => (listingCountBySeller.get(b.id) ?? 0) - (listingCountBySeller.get(a.id) ?? 0))
       .slice(0, 6);
 
-    return { verifiedCount: verifiedIds.length, featured, listingCountBySeller };
-  }, null);
+    return {
+      verifiedCount: verifiedIds.length,
+      featured,
+      listingCounts: featured.map((s) => [s.id, listingCountBySeller.get(s.id) ?? 0] as [string, number]),
+    };
+  },
+  ["home-verified-sellers"],
+  { revalidate: 60 },
+);
+
+// No seller-profile pages exist in this app, so this isn't a mini-directory —
+// a real-data trust band: how many verified sellers there are, plus a
+// handful of them and how many active listings they each have.
+export async function VerifiedSellers() {
+  const data = await safeSection(getVerifiedSellersData, null);
 
   if (!data) return null;
-  const { verifiedCount, featured, listingCountBySeller } = data;
+  const { verifiedCount, featured, listingCounts } = data;
+  const listingCountBySeller = new Map(listingCounts);
 
   return (
     <section className="mx-auto max-w-6xl px-6 py-14">

@@ -1,24 +1,29 @@
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { desc, eq } from "drizzle-orm";
 import { db, reviews } from "@/db";
 import { Card } from "@/components/ui";
 import { SectionHeading } from "./section-heading";
 import { safeSection } from "@/lib/safe-section";
 
+// Not personalized — safe to cache for 60s, same rationale as BrandGrid.
+const getApprovedReviews = unstable_cache(
+  async () =>
+    db
+      .select()
+      .from(reviews)
+      .where(eq(reviews.status, "approved"))
+      .orderBy(desc(reviews.createdAt))
+      .limit(6),
+  ["home-reviews"],
+  { revalidate: 60 },
+);
+
 // Only approved reviews are ever queried — pending/rejected reviews never
 // reach this component. Renders nothing when there are no approved reviews
 // yet, rather than a placeholder or hardcoded testimonial.
 export async function ReviewsSection() {
-  const approved = await safeSection(
-    () =>
-      db
-        .select()
-        .from(reviews)
-        .where(eq(reviews.status, "approved"))
-        .orderBy(desc(reviews.createdAt))
-        .limit(6),
-    [],
-  );
+  const approved = await safeSection(getApprovedReviews, []);
 
   if (approved.length === 0) return null;
 
