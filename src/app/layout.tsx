@@ -21,13 +21,38 @@ const newsreader = Newsreader({
   style: ["normal", "italic"],
 });
 
+// Same fallback pattern already used on the homepage's JSON-LD (src/app/page.tsx)
+// and the new sitemap/robots routes — no production domain configured yet.
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const SITE_TITLE = "SeedhiDeal — verified cars from real owners";
+const SITE_DESCRIPTION =
+  "Trust-first marketplace for verified private-owner cars in Pakistan. Real owners. Real buyers. Seedhi deal.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "SeedhiDeal — verified cars from real owners",
+    default: SITE_TITLE,
     template: "%s | SeedhiDeal",
   },
-  description:
-    "Trust-first marketplace for verified private-owner cars in Pakistan. Real owners. Real buyers. Seedhi deal.",
+  description: SITE_DESCRIPTION,
+  // No global canonical here — canonical URLs are defined only by individual
+  // pages that need one (e.g. /cars, /cars/[id], /dealers, /dealers/[id]),
+  // each via its own `alternates.canonical`, same pattern as per-page `title`.
+  openGraph: {
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    siteName: "SeedhiDeal",
+    images: [{ url: "/logo.jpg" }],
+    locale: "en_PK",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: ["/logo.jpg"],
+  },
 };
 
 export default function RootLayout({

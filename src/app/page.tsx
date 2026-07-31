@@ -340,7 +340,7 @@ export default async function LandingPage() {
             today.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <ButtonLink href="/sell" variant="gold" className="px-7 py-[15px] text-base">
+            <ButtonLink href="/sell" variant="secondary" className="px-7 py-[15px] text-base">
               List your car free
             </ButtonLink>
             <ButtonLink
