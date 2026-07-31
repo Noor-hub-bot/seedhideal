@@ -11,10 +11,7 @@ import { BodyTypeGrid } from "@/components/home/body-type-grid";
 import { BudgetGrid } from "@/components/home/budget-grid";
 import { BrowseByTabs } from "@/components/home/browse-by-tabs";
 import { RecentlyAdded } from "@/components/home/recently-added";
-import { FeaturedCars } from "@/components/home/featured-cars";
-import { TrendingCars } from "@/components/home/trending-cars";
-import { PremiumPicks } from "@/components/home/premium-picks";
-import { RecentlySold } from "@/components/home/recently-sold";
+import { FeaturedCarRail } from "@/components/home/featured-car-rail";
 import { VerifiedSellers } from "@/components/home/verified-sellers";
 import { FeaturedDealers } from "@/components/home/featured-dealers";
 import { ReviewsSection } from "@/components/home/reviews-section";
@@ -253,19 +250,7 @@ export default async function LandingPage() {
       </Suspense>
 
       <Suspense fallback={null}>
-        <FeaturedCars />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <TrendingCars />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <PremiumPicks />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <RecentlySold />
+        <FeaturedCarRail />
       </Suspense>
 
       <Suspense fallback={<SkeletonSection><SkeletonGrid tiles={6} /></SkeletonSection>}>
