@@ -3,7 +3,6 @@ import { unstable_cache } from "next/cache";
 import { and, count, eq, gt, isNull, or } from "drizzle-orm";
 import { db, listings } from "@/db";
 import { Card } from "@/components/ui";
-import { SectionHeading } from "./section-heading";
 import { BODY_TYPES } from "@/lib/constants";
 import { safeSection } from "@/lib/safe-section";
 
@@ -30,26 +29,19 @@ export async function BodyTypeGrid() {
   const countByType = new Map(rows.map((r) => [r.bodyType, r.total]));
 
   return (
-    <section className="mx-auto max-w-6xl px-6 py-14">
-      <SectionHeading
-        title="Browse by body type"
-        subtitle="Not every listing has this set yet — counts reflect real inventory."
-        seeAllHref="/cars"
-      />
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-7">
-        {BODY_TYPES.map((type) => (
-          <Link key={type} href={`/cars?bodyType=${encodeURIComponent(type)}`}>
-            <Card className="flex flex-col items-center gap-1 px-3 py-6 text-center transition-shadow hover:shadow-sm">
-              <BodyTypeIcon className="mb-1 h-6 w-6 text-muted" />
-              <span className="text-sm font-semibold">{type}</span>
-              <span className="text-[12px] text-muted">
-                {countByType.get(type) ?? 0} listing{(countByType.get(type) ?? 0) === 1 ? "" : "s"}
-              </span>
-            </Card>
-          </Link>
-        ))}
-      </div>
-    </section>
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-7">
+      {BODY_TYPES.map((type) => (
+        <Link key={type} href={`/cars?bodyType=${encodeURIComponent(type)}`}>
+          <Card className="flex flex-col items-center gap-1 px-3 py-6 text-center transition-shadow hover:shadow-sm">
+            <BodyTypeIcon className="mb-1 h-6 w-6 text-muted" />
+            <span className="text-sm font-semibold">{type}</span>
+            <span className="text-[12px] text-muted">
+              {countByType.get(type) ?? 0} listing{(countByType.get(type) ?? 0) === 1 ? "" : "s"}
+            </span>
+          </Card>
+        </Link>
+      ))}
+    </div>
   );
 }
 

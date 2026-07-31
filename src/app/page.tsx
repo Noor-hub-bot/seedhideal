@@ -9,6 +9,7 @@ import { SearchBar } from "@/components/search-bar";
 import { BrandGrid } from "@/components/home/brand-grid";
 import { BodyTypeGrid } from "@/components/home/body-type-grid";
 import { BudgetGrid } from "@/components/home/budget-grid";
+import { BrowseByTabs } from "@/components/home/browse-by-tabs";
 import { RecentlyAdded } from "@/components/home/recently-added";
 import { FeaturedCars } from "@/components/home/featured-cars";
 import { TrendingCars } from "@/components/home/trending-cars";
@@ -229,17 +230,23 @@ export default async function LandingPage() {
         <SearchBar variant="expanded" />
       </section>
 
-      <Suspense fallback={<SkeletonSection><SkeletonGrid tiles={6} /></SkeletonSection>}>
-        <BrandGrid />
-      </Suspense>
-
-      <Suspense fallback={<SkeletonSection><SkeletonGrid tiles={7} /></SkeletonSection>}>
-        <BodyTypeGrid />
-      </Suspense>
-
-      <Suspense fallback={<SkeletonSection><SkeletonGrid tiles={5} /></SkeletonSection>}>
-        <BudgetGrid />
-      </Suspense>
+      <BrowseByTabs
+        brand={
+          <Suspense fallback={<SkeletonGrid tiles={6} />}>
+            <BrandGrid />
+          </Suspense>
+        }
+        bodyType={
+          <Suspense fallback={<SkeletonGrid tiles={7} />}>
+            <BodyTypeGrid />
+          </Suspense>
+        }
+        budget={
+          <Suspense fallback={<SkeletonGrid tiles={5} />}>
+            <BudgetGrid />
+          </Suspense>
+        }
+      />
 
       <Suspense fallback={<SkeletonSection><SkeletonRail /></SkeletonSection>}>
         <RecentlyAdded />
