@@ -1,8 +1,9 @@
 import { unstable_cache } from "next/cache";
 import { and, count, countDistinct, eq, gt, inArray, isNull, or } from "drizzle-orm";
-import { db, listings, verificationCases } from "@/db";
+import { db, listings } from "@/db";
 import { Heading } from "@/components/ui";
 import { safeSection } from "@/lib/safe-section";
+import { getVerifiedSellerIds } from "./trust-band";
 
 // Not personalized — safe to cache for 60s, same rationale as BrandGrid.
 const getStats = unstable_cache(
@@ -12,14 +13,13 @@ const getStats = unstable_cache(
       or(isNull(listings.expiresAt), gt(listings.expiresAt, new Date()))!,
     );
 
-    const [[carsRow], [sellersRow], [citiesRow], verifiedCases] = await Promise.all([
+    const [[carsRow], [sellersRow], [citiesRow], verifiedIds] = await Promise.all([
       db.select({ total: count() }).from(listings).where(activeCondition),
       db.select({ total: countDistinct(listings.sellerId) }).from(listings).where(activeCondition),
       db.select({ total: countDistinct(listings.city) }).from(listings).where(activeCondition),
-      db.select({ userId: verificationCases.userId }).from(verificationCases).where(eq(verificationCases.status, "verified")),
+      getVerifiedSellerIds(),
     ]);
 
-    const verifiedIds = [...new Set(verifiedCases.map((r) => r.userId))];
     const [verifiedListingsRow] = verifiedIds.length
       ? await db
           .select({ total: count() })

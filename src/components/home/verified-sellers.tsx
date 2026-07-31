@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { and, count, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
-import { db, listings, users, verificationCases } from "@/db";
+import { db, listings, users } from "@/db";
 import { Card } from "@/components/ui";
 import { SectionHeading } from "./section-heading";
 import { safeSection } from "@/lib/safe-section";
+import { getVerifiedSellerIds } from "./trust-band";
 
 // Not personalized — safe to cache for 60s, same rationale as BrandGrid.
 // Returns `listingCounts` as a plain array of pairs rather than a Map: Map
@@ -12,11 +13,7 @@ import { safeSection } from "@/lib/safe-section";
 // storage round-trip — the Map is reconstructed after the cached read below.
 const getVerifiedSellersData = unstable_cache(
   async () => {
-    const verifiedCases = await db
-      .select({ userId: verificationCases.userId })
-      .from(verificationCases)
-      .where(eq(verificationCases.status, "verified"));
-    const verifiedIds = [...new Set(verifiedCases.map((r) => r.userId))];
+    const verifiedIds = await getVerifiedSellerIds();
     if (verifiedIds.length === 0) return null;
 
     const activeCondition = and(
