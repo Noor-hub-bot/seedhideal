@@ -4,6 +4,7 @@ import { Badge, Card } from "@/components/ui";
 import { formatKm, formatPkr } from "@/lib/format";
 import { FavoriteButton } from "@/components/favorite-button";
 import { CompareCheckbox } from "@/components/compare-checkbox";
+import { CheckIcon, StarIcon } from "@/components/home/icons";
 import type { listings } from "@/db";
 
 type Listing = typeof listings.$inferSelect;
@@ -41,7 +42,7 @@ export function ListingCard({
                 <div className="flex shrink-0 items-center gap-1.5">
                   {listing.featured && (
                     <Badge tone="brand" className="whitespace-nowrap px-2 py-1 text-[11px]">
-                      ★ Featured
+                      <StarIcon className="h-3 w-3 shrink-0" /> Featured
                     </Badge>
                   )}
                   {listing.sellerType === "dealer" && (
@@ -80,7 +81,11 @@ export function ListingCard({
             <div className="mb-2 flex items-start justify-between gap-3">
               <h3 className="text-[17px] font-semibold">{title}</h3>
               <div className="flex shrink-0 items-center gap-1.5">
-                {listing.featured && <Badge tone="brand">★ Featured</Badge>}
+                {listing.featured && (
+                  <Badge tone="brand">
+                    <StarIcon className="h-3 w-3 shrink-0" /> Featured
+                  </Badge>
+                )}
                 {listing.sellerType === "dealer" && <Badge tone="neutral">Dealer</Badge>}
                 <VerifiedPill verified={sellerVerified} />
               </div>
@@ -136,7 +141,7 @@ function VerifiedPill({ verified }: { verified: boolean }) {
   if (!verified) return <Badge tone="review">Under review</Badge>;
   return (
     <Badge tone="verified" className="whitespace-nowrap px-2 py-1 text-[11px]">
-      ✓ Verified
+      <CheckIcon className="h-3 w-3 shrink-0" /> Verified
     </Badge>
   );
 }
