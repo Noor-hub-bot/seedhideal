@@ -1,4 +1,5 @@
 import { Heading } from "@/components/ui";
+import { PlusIcon } from "./icons";
 
 // Native <details>/<summary> — fully accessible and keyboard-operable with
 // zero JavaScript, no new dependency.
@@ -36,7 +37,7 @@ export function FaqAccordion() {
           <details key={f.q} className="group p-5">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold">
               {f.q}
-              <span className="shrink-0 text-muted transition-transform group-open:rotate-45">＋</span>
+              <PlusIcon className="h-4 w-4 shrink-0 text-muted transition-transform group-open:rotate-45" />
             </summary>
             <p className="mt-3 text-sm leading-relaxed text-muted">{f.a}</p>
           </details>

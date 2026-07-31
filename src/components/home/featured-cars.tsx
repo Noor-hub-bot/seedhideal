@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { db, listingBoosts, listings } from "@/db";
 import { getSessionUser } from "@/lib/auth";
@@ -7,26 +8,33 @@ import { SectionHeading } from "./section-heading";
 import { CarRail, CarRailItem } from "./car-rail";
 import { safeSection } from "@/lib/safe-section";
 
+// Only the listing rows are cached — `getSessionUser()` and `enrichListings`'s
+// favorites lookup below stay fully dynamic (per-viewer), so personalization
+// (favorited state, signed-in state) is unaffected by this cache.
+const getFeaturedListings = unstable_cache(
+  async () =>
+    db
+      .select()
+      .from(listings)
+      .where(
+        and(
+          eq(listings.status, "active"),
+          eq(listings.featured, true),
+          or(isNull(listings.expiresAt), gt(listings.expiresAt, new Date()))!,
+        ),
+      )
+      .orderBy(desc(listings.featuredPriority), desc(listings.approvedAt))
+      .limit(12),
+  ["home-featured-cars"],
+  { revalidate: 60 },
+);
+
 // Sellers request a boost from /dashboard, staff approve it from /admin — this
 // section is real and wired, it simply renders nothing until at least one
 // listing has an admin-approved active boost.
 export async function FeaturedCars() {
   const data = await safeSection(async () => {
-    const [results, viewer] = await Promise.all([
-      db
-        .select()
-        .from(listings)
-        .where(
-          and(
-            eq(listings.status, "active"),
-            eq(listings.featured, true),
-            or(isNull(listings.expiresAt), gt(listings.expiresAt, new Date()))!,
-          ),
-        )
-        .orderBy(desc(listings.featuredPriority), desc(listings.approvedAt))
-        .limit(12),
-      getSessionUser(),
-    ]);
+    const [results, viewer] = await Promise.all([getFeaturedListings(), getSessionUser()]);
     if (results.length === 0) return null;
     const enriched = await enrichListings(results, viewer);
     return { results, viewer, ...enriched };

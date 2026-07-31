@@ -5,24 +5,24 @@ import { desc, eq } from "drizzle-orm";
 import { db, listingPhotos, listings } from "@/db";
 import { Badge, ButtonLink, Card, Heading } from "@/components/ui";
 import { formatKm, formatPkr } from "@/lib/format";
-import { HeroSearch } from "@/components/home/hero-search";
+import { SearchBar } from "@/components/search-bar";
 import { BrandGrid } from "@/components/home/brand-grid";
 import { BodyTypeGrid } from "@/components/home/body-type-grid";
 import { BudgetGrid } from "@/components/home/budget-grid";
+import { BrowseByTabs } from "@/components/home/browse-by-tabs";
 import { RecentlyAdded } from "@/components/home/recently-added";
-import { FeaturedCars } from "@/components/home/featured-cars";
-import { TrendingCars } from "@/components/home/trending-cars";
-import { PremiumPicks } from "@/components/home/premium-picks";
-import { RecentlySold } from "@/components/home/recently-sold";
+import { FeaturedCarRail } from "@/components/home/featured-car-rail";
 import { VerifiedSellers } from "@/components/home/verified-sellers";
 import { FeaturedDealers } from "@/components/home/featured-dealers";
 import { ReviewsSection } from "@/components/home/reviews-section";
+import { SocialProof } from "@/components/home/social-proof";
 import { StatisticsBand } from "@/components/home/statistics-band";
 import { WhySeedhiDeal } from "@/components/home/why-seedhideal";
 import { DownloadApp } from "@/components/home/download-app";
 import { NewsletterSection } from "@/components/home/newsletter-section";
 import { FaqAccordion } from "@/components/home/faq-accordion";
 import { SkeletonGrid, SkeletonRail, SkeletonBand, SkeletonSection } from "@/components/home/skeleton";
+import { CheckIcon } from "@/components/home/icons";
 
 const PROBLEMS = [
   {
@@ -132,7 +132,7 @@ export default async function LandingPage() {
       <section className="mx-auto grid max-w-6xl items-center gap-12 px-6 pb-10 pt-16 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:pt-24">
         <div>
           <Badge tone="verified" className="mb-7 px-3.5 py-[7px]">
-            ✓ Every listing verified — identity &amp; ownership
+            <CheckIcon className="h-3.5 w-3.5 shrink-0" /> Every listing verified — identity &amp; ownership
           </Badge>
           <Heading size="display" className="max-w-[600px]">
             Sell with confidence. Buy with proof.
@@ -178,6 +178,8 @@ export default async function LandingPage() {
                 src={featuredWithPhoto.featuredPhoto.storageKey}
                 alt={`${featuredWithPhoto.featured.make} ${featuredWithPhoto.featured.model}`}
                 fill
+                priority
+                sizes="(min-width: 1024px) 500px, 100vw"
                 className="object-cover"
               />
             </div>
@@ -203,7 +205,7 @@ export default async function LandingPage() {
                   </p>
                 </div>
                 <Badge tone="verified" className="whitespace-nowrap px-2.5 py-[5px] text-[11px]">
-                  ✓ Verified
+                  <CheckIcon className="h-3 w-3 shrink-0" /> Verified
                 </Badge>
               </div>
               <p className="mb-4 font-display text-2xl font-medium">
@@ -223,52 +225,51 @@ export default async function LandingPage() {
 
       {/* SEARCH BAR */}
       <section className="mx-auto max-w-6xl px-6 pb-14">
-        <HeroSearch />
+        <SearchBar variant="expanded" />
       </section>
 
-      <Suspense fallback={<SkeletonSection><SkeletonGrid tiles={6} /></SkeletonSection>}>
-        <BrandGrid />
-      </Suspense>
-
-      <Suspense fallback={<SkeletonSection><SkeletonGrid tiles={7} /></SkeletonSection>}>
-        <BodyTypeGrid />
-      </Suspense>
-
-      <Suspense fallback={<SkeletonSection><SkeletonGrid tiles={5} /></SkeletonSection>}>
-        <BudgetGrid />
-      </Suspense>
+      <BrowseByTabs
+        brand={
+          <Suspense fallback={<SkeletonGrid tiles={6} />}>
+            <BrandGrid />
+          </Suspense>
+        }
+        bodyType={
+          <Suspense fallback={<SkeletonGrid tiles={7} />}>
+            <BodyTypeGrid />
+          </Suspense>
+        }
+        budget={
+          <Suspense fallback={<SkeletonGrid tiles={5} />}>
+            <BudgetGrid />
+          </Suspense>
+        }
+      />
 
       <Suspense fallback={<SkeletonSection><SkeletonRail /></SkeletonSection>}>
         <RecentlyAdded />
       </Suspense>
 
       <Suspense fallback={null}>
-        <FeaturedCars />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <TrendingCars />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <PremiumPicks />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <RecentlySold />
+        <FeaturedCarRail />
       </Suspense>
 
       <Suspense fallback={<SkeletonSection><SkeletonGrid tiles={6} /></SkeletonSection>}>
         <VerifiedSellers />
       </Suspense>
 
-      <Suspense fallback={null}>
-        <FeaturedDealers />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <ReviewsSection />
-      </Suspense>
+      <SocialProof
+        dealers={
+          <Suspense fallback={null}>
+            <FeaturedDealers />
+          </Suspense>
+        }
+        reviews={
+          <Suspense fallback={null}>
+            <ReviewsSection />
+          </Suspense>
+        }
+      />
 
       <Suspense fallback={<SkeletonBand className="h-32" />}>
         <StatisticsBand />
@@ -340,7 +341,7 @@ export default async function LandingPage() {
             today.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <ButtonLink href="/sell" variant="gold" className="px-7 py-[15px] text-base">
+            <ButtonLink href="/sell" variant="secondary" className="px-7 py-[15px] text-base">
               List your car free
             </ButtonLink>
             <ButtonLink

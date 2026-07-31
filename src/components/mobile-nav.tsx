@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui";
-import { HeaderSearchForm } from "@/components/header-search";
+import { SearchBar } from "@/components/search-bar";
+import { NavLink } from "@/components/nav-link";
 
 const navLink =
   "block py-2 text-[15px] font-medium text-muted transition-colors hover:text-foreground";
@@ -35,21 +36,21 @@ export function MobileNav({
       {open && (
         <div className="absolute inset-x-0 top-full z-30 border-t border-border bg-surface px-6 py-5 shadow-md">
           <nav className="mb-5 flex flex-col">
-            <Link href="/cars" className={navLink} onClick={close}>
+            <NavLink href="/cars" className={navLink} onClick={close}>
               Browse Cars
-            </Link>
-            <Link href="/dealers" className={navLink} onClick={close}>
+            </NavLink>
+            <NavLink href="/dealers" className={navLink} onClick={close}>
               Dealers
-            </Link>
-            <Link href="/sell" className={navLink} onClick={close}>
+            </NavLink>
+            <NavLink href="/sell" className={navLink} onClick={close}>
               Sell Car
-            </Link>
+            </NavLink>
             <Link href="/#how-it-works" className={navLink} onClick={close}>
               How It Works
             </Link>
-            <Link href="/help" className={navLink} onClick={close}>
+            <NavLink href="/help" className={navLink} onClick={close}>
               Help
-            </Link>
+            </NavLink>
             {signedIn && (
               <Link href="/dashboard/favorites" className={navLink} onClick={close}>
                 Saved
@@ -72,7 +73,7 @@ export function MobileNav({
             )}
           </nav>
 
-          <HeaderSearchForm className="mb-5" />
+          <SearchBar variant="compact" className="mb-5" />
 
           <div className="flex flex-col gap-3">
             <ButtonLink href="/sell" className="shadow-sm" onClick={close}>
