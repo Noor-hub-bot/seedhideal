@@ -81,7 +81,18 @@ export async function createEmailOtpChallenge(
     expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000),
   });
 
-  await sendOtpEmail(email, code, purpose);
+  try {
+    await sendOtpEmail(email, code, purpose);
+  } catch (err) {
+    // Expected, not a bug, until a domain is verified with the email provider — its
+    // sandbox mode only delivers to the account owner's own address and rejects
+    // everyone else. The challenge row above still exists and the caller (sign-up,
+    // resend, forgot-password) already treats `ok: false` as a non-fatal, displayable
+    // error, so account creation upstream of this call is unaffected. Once a domain
+    // is verified, delivery starts succeeding here with no further code changes.
+    console.error(`Failed to send ${purpose} OTP email to ${email}:`, err);
+    return { ok: false, error: "Verification email could not be sent. Please contact support or try again later." };
+  }
   return { ok: true };
 }
 
