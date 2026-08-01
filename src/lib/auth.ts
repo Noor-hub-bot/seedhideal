@@ -6,7 +6,7 @@ import { db, otpChallenges, sessions, users } from "@/db";
 import { sendOtpEmail } from "@/lib/email";
 import { TERMS_VERSION } from "@/lib/constants";
 
-const SESSION_COOKIE = "sd_session";
+export const SESSION_COOKIE = "sd_session";
 const SESSION_DAYS = 30;
 const OTP_TTL_MINUTES = 10;
 const OTP_MAX_ATTEMPTS = 5;
@@ -191,24 +191,32 @@ export async function findOrCreateGoogleUser(params: {
 
 // ---------- Sessions ----------
 
-/** Issues a session cookie for an already-authenticated user. Shared by password
- * sign-in, post-email-verification sign-in, and the Google OAuth bridge — this is
- * the single place a session gets created, everything else (getSessionUser, isStaff,
- * the 40+ pages/actions that gate on them) is unchanged regardless of how the user
- * got here. */
-export async function createSessionForUser(userId: string): Promise<void> {
+/** Creates a session row for an already-authenticated user and returns its token/expiry.
+ * Shared by password sign-in, post-email-verification sign-in, and the Google OAuth
+ * bridge — this is the single place a session gets created, everything else
+ * (getSessionUser, isStaff, the 40+ pages/actions that gate on them) is unchanged
+ * regardless of how the user got here.
+ *
+ * Deliberately does NOT set the cookie itself: cookies() may only be *written* from
+ * a Server Action or Route Handler, and this function is called from both (Server
+ * Actions here in lib/actions/auth.ts, and the /google-bridge Route Handler, which
+ * writes to a NextResponse instead of the cookies() store). Callers must set
+ * SESSION_COOKIE to `token` themselves, using sessionCookieOptions(expiresAt). */
+export async function createSessionForUser(userId: string): Promise<{ token: string; expiresAt: Date }> {
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
   await db.insert(sessions).values({ token, userId, expiresAt });
+  return { token, expiresAt };
+}
 
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, token, {
+export function sessionCookieOptions(expiresAt: Date) {
+  return {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "lax" as const,
     path: "/",
     expires: expiresAt,
-  });
+  };
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {

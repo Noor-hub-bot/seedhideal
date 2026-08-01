@@ -12,6 +12,8 @@ import {
   getUserByEmail,
   hashPassword,
   markEmailVerified,
+  SESSION_COOKIE,
+  sessionCookieOptions,
   signOutCurrentSession,
   verifyEmailOtp,
   verifyPassword,
@@ -112,7 +114,8 @@ export async function signInAction(_prev: AuthActionState, formData: FormData): 
     redirect(`/verify?email=${encodeURIComponent(email)}`);
   }
 
-  await createSessionForUser(user.id);
+  const { token, expiresAt } = await createSessionForUser(user.id);
+  (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions(expiresAt));
   redirect(next && next.startsWith("/") ? next : "/dashboard");
 }
 
@@ -135,7 +138,8 @@ export async function verifyEmailAction(_prev: AuthActionState, formData: FormDa
   if (!user) return { error: "Account not found. Please sign up again." };
 
   await markEmailVerified(user.id);
-  await createSessionForUser(user.id);
+  const { token, expiresAt } = await createSessionForUser(user.id);
+  (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions(expiresAt));
   redirect("/verify/success");
 }
 

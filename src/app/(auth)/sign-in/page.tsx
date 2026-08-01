@@ -9,17 +9,17 @@ export const metadata: Metadata = { title: "Sign In" };
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 }) {
   const user = await getSessionUser();
   if (user) redirect("/dashboard");
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
 
   return (
     <AuthCard>
       <AuthWordmark />
       <AuthHeading subtitle="Glad to see you again!">Welcome Back</AuthHeading>
-      <SignInForm next={next} />
+      <SignInForm next={next} oauthError={error ? "Google sign-in failed or was cancelled. Please try again." : undefined} />
     </AuthCard>
   );
 }

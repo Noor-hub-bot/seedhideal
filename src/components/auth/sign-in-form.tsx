@@ -6,11 +6,12 @@ import { signInAction, signInWithGoogleAction, type AuthActionState } from "@/li
 import { AuthButton, AuthDivider, AuthErrorText, AuthInput, AuthPasswordInput } from "./ui";
 import { GoogleIcon, MailIcon } from "./icons";
 
-export function SignInForm({ next }: { next?: string }) {
+export function SignInForm({ next, oauthError }: { next?: string; oauthError?: string }) {
   const [state, formAction, pending] = useActionState<AuthActionState, FormData>(signInAction, {});
 
   return (
     <div className="space-y-5">
+      <AuthErrorText>{oauthError}</AuthErrorText>
       <form action={formAction} className="space-y-5">
         {next && <input type="hidden" name="next" value={next} />}
         <AuthInput
