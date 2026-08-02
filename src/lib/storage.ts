@@ -8,7 +8,7 @@ export { MIN_PHOTOS, MAX_PHOTOS };
 
 // S3-compatible object storage for every image in the app — listing photos, dealer
 // logos/covers, avatars (all public), and verification documents (private, VER-04).
-// Backed by Neon Object Storage (bucket "my-listings", public_read), reached via the
+// Backed by Neon Object Storage (public_read bucket, name set via STORAGE_BUCKET), reached via the
 // standard AWS SDK env vars — works unmodified with Cloudflare R2 or AWS S3 too, since
 // all three speak the same S3 API.
 const AWS_ENDPOINT_URL_S3 = process.env.AWS_ENDPOINT_URL_S3;
@@ -23,7 +23,7 @@ const BUCKET = process.env.STORAGE_BUCKET;
 const PUBLIC_URL_BASE =
   process.env.STORAGE_PUBLIC_URL_BASE || (AWS_ENDPOINT_URL_S3 && BUCKET ? `${AWS_ENDPOINT_URL_S3}/${BUCKET}` : undefined);
 // Dedicated bucket for verification documents (identity/ownership docs, VER-04 — never
-// served publicly). Must be a genuinely private bucket, not "my-listings" — see
+// served publicly). Must be a genuinely private bucket, not the public STORAGE_BUCKET — see
 // uploadVerificationDoc below; there is no same-bucket fallback because a public_read
 // bucket can't make a prefix private, it would just be an unlisted-but-fetchable URL.
 const PRIVATE_BUCKET = process.env.STORAGE_PRIVATE_BUCKET;
@@ -39,6 +39,11 @@ const client =
     : new S3Client({
         region: AWS_REGION,
         endpoint: AWS_ENDPOINT_URL_S3 || undefined,
+        // Neon Object Storage's TLS cert only covers one subdomain level
+        // (*.storage.<region>.aws.neon.tech), so the SDK's default virtual-hosted-style
+        // addressing (<bucket>.<endpoint>) fails certificate validation. Path-style
+        // (<endpoint>/<bucket>) is what Neon (and R2) actually serve.
+        forcePathStyle: true,
         credentials: {
           accessKeyId: AWS_ACCESS_KEY_ID!,
           secretAccessKey: AWS_SECRET_ACCESS_KEY!,
