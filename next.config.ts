@@ -1,6 +1,24 @@
 import path from "path";
 import type { NextConfig } from "next";
 
+// Mirrors src/lib/storage.ts's PUBLIC_URL_BASE derivation: an explicit
+// STORAGE_PUBLIC_URL_BASE wins, otherwise it's the S3 endpoint + bucket (how a
+// public_read bucket serves objects via plain path-style GETs).
+const storagePublicUrl =
+  process.env.STORAGE_PUBLIC_URL_BASE ||
+  (process.env.AWS_ENDPOINT_URL_S3 && process.env.STORAGE_BUCKET
+    ? `${process.env.AWS_ENDPOINT_URL_S3}/${process.env.STORAGE_BUCKET}`
+    : undefined);
+
+function storageOrigin(): string {
+  if (!storagePublicUrl) return "";
+  try {
+    return new URL(storagePublicUrl).origin;
+  } catch {
+    return "";
+  }
+}
+
 // Next's documented "without nonces" CSP (see docs/app/guides/content-security-policy) —
 // simpler than nonce+proxy, which would force every page to dynamic rendering.
 const isDev = process.env.NODE_ENV === "development";
@@ -8,7 +26,7 @@ const cspHeader = `
   default-src 'self';
   script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""};
   style-src 'self' 'unsafe-inline';
-  img-src 'self' blob: data: https://res.cloudinary.com;
+  img-src 'self' blob: data: ${storageOrigin()};
   font-src 'self';
   object-src 'none';
   base-uri 'self';
@@ -48,8 +66,8 @@ const nextConfig: NextConfig = {
     contentDispositionType: "attachment",
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     remotePatterns: [
+      ...(storagePublicUrl ? [new URL(`${storagePublicUrl}/**`)] : []),
       new URL("https://lh3.googleusercontent.com/**"), // Google account profile photos
-      new URL("https://res.cloudinary.com/**"), // Listing photos, dealer assets, avatars
     ],
   },
   experimental: {
