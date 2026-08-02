@@ -21,7 +21,7 @@ import {
 } from "@/lib/auth";
 import { db, otpChallenges, users, auditLog } from "@/db";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { CITIES } from "@/lib/constants";
+import { CITIES, EMAIL_VERIFICATION_REQUIRED } from "@/lib/constants";
 import { ALLOWED_PHOTO_TYPES, MAX_PHOTO_BYTES, detectFileType, uploadAvatar } from "@/lib/storage";
 import { signIn } from "@/auth";
 
@@ -73,7 +73,14 @@ export async function signUpAction(_prev: AuthActionState, formData: FormData): 
   const existing = await getUserByEmail(email);
   if (existing) return { error: "An account with this email already exists." };
 
-  await createUserWithPassword({ email, passwordHash: hashPassword(password), displayName: fullName });
+  const user = await createUserWithPassword({ email, passwordHash: hashPassword(password), displayName: fullName });
+
+  if (!EMAIL_VERIFICATION_REQUIRED) {
+    await markEmailVerified(user.id);
+    const { token, expiresAt } = await createSessionForUser(user.id);
+    (await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions(expiresAt));
+    redirect("/complete-profile");
+  }
 
   const otp = await createEmailOtpChallenge(email, "verify_email");
   if (!otp.ok) return { error: otp.error };
@@ -108,7 +115,7 @@ export async function signInAction(_prev: AuthActionState, formData: FormData): 
   }
   if (user.status === "deactivated") return { error: "This account is deactivated. Contact support." };
 
-  if (!user.emailVerifiedAt) {
+  if (EMAIL_VERIFICATION_REQUIRED && !user.emailVerifiedAt) {
     const otp = await createEmailOtpChallenge(email, "verify_email");
     if (!otp.ok) return { error: otp.error };
     redirect(`/verify?email=${encodeURIComponent(email)}`);

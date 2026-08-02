@@ -103,3 +103,11 @@ export const MAX_PHOTOS = 8;
 // Bump this when Terms of Service content changes — new signups accept the current
 // version immediately (see signUpAction).
 export const TERMS_VERSION = "2026-07-23";
+
+// Kill switch for the email-OTP gate (signup verification + the "verify before
+// login" check) — off by default. Resend's sandbox tier only delivers to the
+// account owner's own address until a domain is verified, so requiring OTP
+// verification right now would lock every real signup out. Set
+// EMAIL_VERIFICATION_REQUIRED=true (in Vercel env vars) once a domain is verified
+// with the email provider to restore the normal flow — no other code changes needed.
+export const EMAIL_VERIFICATION_REQUIRED = process.env.EMAIL_VERIFICATION_REQUIRED === "true";
