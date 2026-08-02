@@ -2,24 +2,74 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { v2 as cloudinary, type UploadApiOptions } from "cloudinary";
 import { MAX_PHOTOS, MIN_PHOTOS } from "@/lib/constants";
 
 export { MIN_PHOTOS, MAX_PHOTOS };
+
+// ---------- Public images (listing photos, dealer logos/covers, avatars) — Cloudinary ----------
+
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
+
+const useCloudinary = !!(CLOUDINARY_CLOUD_NAME && CLOUDINARY_API_KEY && CLOUDINARY_API_SECRET);
+
+if (useCloudinary) {
+  cloudinary.config({
+    cloud_name: CLOUDINARY_CLOUD_NAME,
+    api_key: CLOUDINARY_API_KEY,
+    api_secret: CLOUDINARY_API_SECRET,
+    secure: true,
+  });
+}
+
+/** Uploads bytes to Cloudinary and returns the delivery URL. Every upload carries the
+ * same transformation, baked directly into the stored/returned URL: capped at 2000px
+ * (listing photos can arrive up to 6MB straight off a phone camera), quality:auto:good
+ * (perceptual compression), fetch_format:auto (serves WebP/AVIF to browsers that
+ * support it, JPEG otherwise) — callers and <Image> consumers never need to know any
+ * of this happened, they just get back a URL that's already optimized. */
+function uploadToCloudinary(bytes: Uint8Array, options: UploadApiOptions): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: "image",
+        overwrite: false,
+        transformation: [{ width: 2000, crop: "limit" }, { quality: "auto:good" }, { fetch_format: "auto" }],
+        ...options,
+      },
+      (error, result) => {
+        if (error || !result) return reject(error ?? new Error("Cloudinary upload returned no result."));
+        resolve(result.secure_url);
+      },
+    );
+    uploadStream.end(Buffer.from(bytes));
+  });
+}
+
+// No CLOUDINARY_* configured yet — save to disk so local development works before a
+// real Cloudinary account is set up.
+const publicLocalFallback = !useCloudinary;
+
+// ---------- Private documents (verification identity/ownership proof) — S3/R2 ----------
+// Unrelated to the Cloudinary path above: these must never be served publicly (VER-04),
+// so they stay on signed, authenticated access through /api/verification-docs rather
+// than Cloudinary's public delivery URLs.
 
 // Works with both Cloudflare R2 and AWS S3 — both speak the same S3 API.
 // R2: set STORAGE_ENDPOINT to https://<account-id>.r2.cloudflarestorage.com and STORAGE_REGION to "auto".
 // AWS S3: leave STORAGE_ENDPOINT unset and set STORAGE_REGION to the bucket's region (e.g. "ap-south-1").
 const BUCKET = process.env.STORAGE_BUCKET;
-const PUBLIC_URL_BASE = process.env.STORAGE_PUBLIC_URL_BASE;
-// Optional dedicated bucket for verification documents (identity/ownership docs, VER-04 —
-// never served publicly). Falls back to a private-prefixed key in the main bucket.
+// Optional dedicated bucket for verification documents. Falls back to a private-prefixed
+// key in the main bucket.
 const PRIVATE_BUCKET = process.env.STORAGE_PRIVATE_BUCKET || BUCKET;
 
-// No STORAGE_BUCKET configured yet — save photos to disk so local development
+// No STORAGE_BUCKET configured yet — save documents to disk so local development
 // and testing works before a real R2/S3 bucket is set up.
-const useLocalFallback = !BUCKET;
+const usePrivateLocalFallback = !PRIVATE_BUCKET;
 
-const client = useLocalFallback
+const client = usePrivateLocalFallback
   ? null
   : new S3Client({
       region: process.env.STORAGE_REGION || "auto",
@@ -68,85 +118,51 @@ export function detectFileType(bytes: Uint8Array): string | null {
   return null;
 }
 
-/** Uploads one listing photo and returns its public URL (stored as listingPhotos.storageKey). */
-export async function uploadListingPhoto(file: File, listingId: string): Promise<string> {
-  const ext = EXT_BY_TYPE[file.type];
-  const key = `listings/${listingId}/${randomUUID()}.${ext}`;
+async function uploadPublicImage(file: File, localKey: string, cloudinaryOptions: UploadApiOptions): Promise<string> {
   const body = new Uint8Array(await file.arrayBuffer());
 
-  if (useLocalFallback) {
-    const filePath = path.join(process.cwd(), "public", "uploads", key);
+  if (publicLocalFallback) {
+    const filePath = path.join(process.cwd(), "public", "uploads", localKey);
     await mkdir(path.dirname(filePath), { recursive: true });
     await writeFile(filePath, body);
-    return `/uploads/${key}`;
+    return `/uploads/${localKey}`;
   }
 
-  await client!.send(
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-      Body: body,
-      ContentType: file.type,
-    }),
-  );
-
-  return `${PUBLIC_URL_BASE!.replace(/\/$/, "")}/${key}`;
+  return uploadToCloudinary(body, cloudinaryOptions);
 }
 
-/** Uploads a dealer logo/cover image and returns its public URL. Mirrors
- * uploadListingPhoto exactly — same bucket, just a different key prefix. */
+/** Uploads one listing photo to Cloudinary and returns its delivery URL — stored
+ * verbatim as listingPhotos.storageKey and rendered directly via next/image. */
+export async function uploadListingPhoto(file: File, listingId: string): Promise<string> {
+  const ext = EXT_BY_TYPE[file.type];
+  return uploadPublicImage(file, `listings/${listingId}/${randomUUID()}.${ext}`, {
+    folder: `seedhideal/listings/${listingId}`,
+    public_id: randomUUID(),
+  });
+}
+
+/** Uploads a dealer logo/cover image to Cloudinary and returns its delivery URL. Mirrors
+ * uploadListingPhoto exactly — same account, just a different folder prefix. */
 export async function uploadDealerAsset(
   file: File,
   dealerId: string,
   kind: "logo" | "cover",
 ): Promise<string> {
   const ext = EXT_BY_TYPE[file.type];
-  const key = `dealers/${dealerId}/${kind}-${randomUUID()}.${ext}`;
-  const body = new Uint8Array(await file.arrayBuffer());
-
-  if (useLocalFallback) {
-    const filePath = path.join(process.cwd(), "public", "uploads", key);
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(filePath, body);
-    return `/uploads/${key}`;
-  }
-
-  await client!.send(
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-      Body: body,
-      ContentType: file.type,
-    }),
-  );
-
-  return `${PUBLIC_URL_BASE!.replace(/\/$/, "")}/${key}`;
+  return uploadPublicImage(file, `dealers/${dealerId}/${kind}-${randomUUID()}.${ext}`, {
+    folder: `seedhideal/dealers/${dealerId}`,
+    public_id: `${kind}-${randomUUID()}`,
+  });
 }
 
-/** Uploads a user's profile avatar and returns its public URL. Mirrors
- * uploadListingPhoto/uploadDealerAsset exactly — same bucket, own key prefix. */
+/** Uploads a user's profile avatar to Cloudinary and returns its delivery URL. Mirrors
+ * uploadListingPhoto/uploadDealerAsset exactly — same account, own folder prefix. */
 export async function uploadAvatar(file: File, userId: string): Promise<string> {
   const ext = EXT_BY_TYPE[file.type];
-  const key = `avatars/${userId}/${randomUUID()}.${ext}`;
-  const body = new Uint8Array(await file.arrayBuffer());
-
-  if (useLocalFallback) {
-    const filePath = path.join(process.cwd(), "public", "uploads", key);
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(filePath, body);
-    return `/uploads/${key}`;
-  }
-
-  await client!.send(
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-      Body: body,
-      ContentType: file.type,
-    }),
-  );
-
-  return `${PUBLIC_URL_BASE!.replace(/\/$/, "")}/${key}`;
+  return uploadPublicImage(file, `avatars/${userId}/${randomUUID()}.${ext}`, {
+    folder: `seedhideal/avatars/${userId}`,
+    public_id: randomUUID(),
+  });
 }
 
 function privateLocalPath(key: string): string {
@@ -167,7 +183,7 @@ export async function uploadVerificationDoc(
   const key = `verification/${userId}/${kind}-${randomUUID()}.${ext}`;
   const body = new Uint8Array(await file.arrayBuffer());
 
-  if (useLocalFallback) {
+  if (usePrivateLocalFallback) {
     const filePath = privateLocalPath(key);
     await mkdir(path.dirname(filePath), { recursive: true });
     await writeFile(filePath, body);
@@ -193,7 +209,7 @@ export async function getVerificationDocBytes(
   const ext = storageKey.split(".").pop() ?? "";
   const contentType = TYPE_BY_EXT[ext] ?? "application/octet-stream";
 
-  if (useLocalFallback) {
+  if (usePrivateLocalFallback) {
     const bytes = await readFile(privateLocalPath(storageKey));
     return { bytes: new Uint8Array(bytes), contentType };
   }
