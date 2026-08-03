@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import Image from "next/image";
 import { asc, desc, eq } from "drizzle-orm";
 import { db, listingPhotos, listings } from "@/db";
 import { Badge, ButtonLink, Card, Heading } from "@/components/ui";
+import { PhotoCarousel } from "@/components/photo-carousel";
 import { formatKm, formatPkr } from "@/lib/format";
 import { SearchBar } from "@/components/search-bar";
 import { BrandGrid } from "@/components/home/brand-grid";
@@ -83,7 +83,7 @@ type Listing = typeof listings.$inferSelect;
 type ListingPhoto = typeof listingPhotos.$inferSelect;
 
 async function fetchHeroListing(): Promise<
-  { listing: Listing; photo?: ListingPhoto } | undefined
+  { listing: Listing; photos: ListingPhoto[] } | undefined
 > {
   try {
     const [listing] = await db
@@ -94,14 +94,13 @@ async function fetchHeroListing(): Promise<
       .limit(1);
     if (!listing) return undefined;
 
-    const [photo] = await db
+    const photos = await db
       .select()
       .from(listingPhotos)
       .where(eq(listingPhotos.listingId, listing.id))
-      .orderBy(asc(listingPhotos.sortOrder))
-      .limit(1);
+      .orderBy(asc(listingPhotos.sortOrder));
 
-    return { listing, photo };
+    return { listing, photos };
   } catch {
     return undefined;
   }
@@ -114,11 +113,11 @@ export default async function LandingPage() {
   // section's query safely can behind its own Suspense boundary.
   const hero = await fetchHeroListing();
   const featured = hero?.listing;
-  const featuredPhoto = hero?.photo;
   // Combined so the JSX below can narrow both together (TS can't infer that
-  // `featuredPhoto` being set implies `featured` is too, across two separate
+  // `featuredPhotos` being non-empty implies `featured` is too, across two separate
   // optional variables).
-  const featuredWithPhoto = featured && featuredPhoto ? { featured, featuredPhoto } : undefined;
+  const featuredWithPhotos =
+    hero && hero.photos.length > 0 ? { featured: hero.listing, featuredPhotos: hero.photos } : undefined;
 
   return (
     <div>
@@ -173,17 +172,20 @@ export default async function LandingPage() {
 
         {/* Featured verified listing */}
         <Card className="rounded-[20px] p-7">
-          {featuredWithPhoto ? (
-            <div className="relative mb-5 h-[220px] overflow-hidden rounded-[14px]">
-              <Image
-                src={featuredWithPhoto.featuredPhoto.storageKey}
-                alt={`${featuredWithPhoto.featured.make} ${featuredWithPhoto.featured.model}`}
-                fill
-                priority
-                sizes="(min-width: 1024px) 500px, 100vw"
-                className="object-cover"
-              />
-            </div>
+          {featuredWithPhotos ? (
+            <PhotoCarousel
+              photos={featuredWithPhotos.featuredPhotos.map((p) => p.storageKey)}
+              alt={`${featuredWithPhotos.featured.make} ${featuredWithPhotos.featured.model}`}
+              className="mb-5"
+              aspectClassName="h-[220px]"
+              roundedClassName="rounded-[14px]"
+              objectFit="contain"
+              whiteBackground
+              showArrows="hover"
+              autoplayMs={4000}
+              priority
+              imageSizes="(min-width: 1024px) 500px, 100vw"
+            />
           ) : (
             <div className="photo-placeholder mb-5 h-[220px] rounded-[14px]">
               verified owner &amp; car photo
