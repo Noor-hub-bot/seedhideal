@@ -209,20 +209,34 @@ export function useImageZoom({
       commit(transform.current.scale, px, py);
     }
 
-    function pressEnd(x: number, y: number) {
+    function pressEnd(x: number, y: number, isTouch: boolean) {
       const wasZoomed = zoomedRef.current;
       dragStart.current = null;
       setDragging(false);
-      if (!moved.current) {
-        scheduleClick(x, y);
-      } else if (!wasZoomed && swipeStart.current) {
-        const dx = x - swipeStart.current.x;
-        if (Math.abs(dx) > SWIPE_THRESHOLD) {
-          if (dx > 0) emitSwipeRight();
-          else emitSwipeLeft();
-        }
-      }
+      const start = swipeStart.current;
       swipeStart.current = null;
+
+      // Distance is measured directly between press-start and press-end, not solely from
+      // `moved` (set by intermediate touchmove/mousemove events) — a fast, short swipe can
+      // reach touchend having fired zero intermediate touchmove events, and would otherwise
+      // be misread as a stationary click. This matches how plain swipe-to-navigate worked
+      // before zoom was added (touchstart position vs touchend position, nothing else).
+      const dx = start ? x - start.x : 0;
+      const dy = start ? y - start.y : 0;
+      const realMovement = moved.current || Math.hypot(dx, dy) > MOVE_THRESHOLD;
+
+      if (!realMovement) {
+        scheduleClick(x, y);
+        return;
+      }
+      // Swipe-to-navigate is a touch gesture only (matches the original carousel and the
+      // spec's "mobile" scoping) — a mouse drag while not zoomed does nothing at all,
+      // rather than accidentally growing a "click-and-drag to change photos" desktop
+      // behavior that was never part of the design.
+      if (isTouch && !wasZoomed && Math.abs(dx) > SWIPE_THRESHOLD) {
+        if (dx > 0) emitSwipeRight();
+        else emitSwipeLeft();
+      }
     }
 
     function onWheel(e: WheelEvent) {
@@ -238,7 +252,7 @@ export function useImageZoom({
       if (dragStart.current) pan(e.clientX, e.clientY);
     }
     function onMouseUp(e: MouseEvent) {
-      pressEnd(e.clientX, e.clientY);
+      pressEnd(e.clientX, e.clientY, false);
     }
     function onMouseLeave() {
       dragStart.current = null;
@@ -280,7 +294,7 @@ export function useImageZoom({
       if (e.touches.length === 0) pinch.current = null;
       if (e.touches.length < 2) {
         const touch = e.changedTouches[0];
-        if (touch) pressEnd(touch.clientX, touch.clientY);
+        if (touch) pressEnd(touch.clientX, touch.clientY, true);
       }
     }
 
