@@ -4,6 +4,15 @@ import { db, listings } from "@/db";
 import { Heading } from "@/components/ui";
 import { safeSection } from "@/lib/safe-section";
 import { getVerifiedSellerIds } from "./trust-band";
+import { CarIcon, MapPinIcon, UsersIcon, VerificationIcon } from "./icons";
+import { CountUpNumber } from "./count-up-number";
+
+const STAT_ICONS: Record<string, typeof CarIcon> = {
+  "Cars listed": CarIcon,
+  Sellers: UsersIcon,
+  Cities: MapPinIcon,
+  "Verified listings": VerificationIcon,
+};
 
 // Not personalized — safe to cache for 60s, same rationale as BrandGrid.
 const getStats = unstable_cache(
@@ -44,18 +53,33 @@ export async function StatisticsBand() {
   if (!stats) return null;
 
   return (
-    <section className="border-y border-border bg-surface px-6 py-16">
+    <section className="border-y border-border bg-neutral-chip/50 px-6 py-20">
       <div className="mx-auto max-w-6xl">
-        <Heading as="h2" size="md" className="mb-10 text-center">
+        <Heading as="h2" size="md" className="mb-3 text-center">
           SeedhiDeal in numbers
         </Heading>
-        <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
-          {stats.map((s) => (
-            <div key={s.label} className="text-center">
-              <div className="font-display text-[36px] font-medium">{s.value}</div>
-              <div className="mt-1 text-[13px] text-muted">{s.label}</div>
-            </div>
-          ))}
+        <p className="mx-auto mb-12 max-w-[480px] text-center text-muted">
+          Real activity from a verified marketplace.
+        </p>
+        <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
+          {stats.map((s) => {
+            const Icon = STAT_ICONS[s.label] ?? CarIcon;
+            return (
+              <div
+                key={s.label}
+                className="group relative overflow-hidden rounded-2xl border border-border bg-surface p-6 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:p-8"
+              >
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand via-brand-soft-ink to-brand opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-brand-soft to-surface text-brand-soft-ink transition-transform duration-300 group-hover:scale-110">
+                  <Icon className="h-6 w-6" />
+                </div>
+                <div className="font-display text-[32px] font-medium leading-none sm:text-[40px]">
+                  <CountUpNumber value={s.value} />
+                </div>
+                <div className="mt-2.5 text-[13px] font-medium text-muted">{s.label}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>

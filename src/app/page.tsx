@@ -17,37 +17,14 @@ import { FeaturedDealers } from "@/components/home/featured-dealers";
 import { ReviewsSection } from "@/components/home/reviews-section";
 import { SocialProof } from "@/components/home/social-proof";
 import { StatisticsBand } from "@/components/home/statistics-band";
+import { TrustComparison } from "@/components/home/trust-comparison";
+import { HowItWorks } from "@/components/home/how-it-works";
 import { WhySeedhiDeal } from "@/components/home/why-seedhideal";
 import { DownloadApp } from "@/components/home/download-app";
 import { NewsletterSection } from "@/components/home/newsletter-section";
 import { FaqAccordion } from "@/components/home/faq-accordion";
 import { SkeletonGrid, SkeletonRail, SkeletonBand, SkeletonSection } from "@/components/home/skeleton";
 import { CheckIcon } from "@/components/home/icons";
-
-const PROBLEMS = [
-  {
-    problem: "Dealers posing as owners",
-    detail: "Bulk listings quietly controlled by dealers crowd out genuine sellers.",
-    response: "Identity and ownership evidence required, with dealers clearly labelled.",
-  },
-  {
-    problem: "Low-quality, anonymous leads",
-    detail: "Sellers get flooded with messages that never turn into a real visit.",
-    response: "Buyer phone verification and structured intent before any contact.",
-  },
-  {
-    problem: "Guesswork pricing",
-    detail: "Asking prices copy each other and drift away from real sale values.",
-    response: "Transparent price ranges built from closed-sale data.",
-  },
-];
-
-const STEPS = [
-  { title: "Verify", detail: "Confirm your phone, identity and ownership evidence." },
-  { title: "List", detail: "Add structured details, condition disclosure and photos." },
-  { title: "Connect", detail: "Receive verified inquiries without exposing your number." },
-  { title: "Meet & sell", detail: "Confirm a visit, close the deal, share the outcome." },
-];
 
 export const metadata: Metadata = { title: "Browse verified cars" };
 
@@ -278,55 +255,9 @@ export default async function LandingPage() {
         <StatisticsBand />
       </Suspense>
 
-      {/* PROBLEM / RESPONSE — existing content, kept verbatim */}
-      <section className="border-y border-border bg-surface px-6 py-20">
-        <div className="mx-auto max-w-6xl">
-          <Heading as="h2" size="lg" className="mb-3">
-            Why marketplaces feel unsafe today
-          </Heading>
-          <p className="mb-12 max-w-[640px] text-muted">
-            We built SeedhiDeal around the problems owners and buyers actually
-            report.
-          </p>
-          <div className="grid overflow-hidden rounded-card border border-border bg-border md:grid-cols-3 md:gap-px">
-            {PROBLEMS.map((p) => (
-              <div key={p.problem} className="bg-surface p-8">
-                <div className="mb-2.5 text-[13px] font-semibold uppercase tracking-[0.06em] text-alert-ink">
-                  The problem
-                </div>
-                <div className="mb-2 font-semibold">{p.problem}</div>
-                <p className="mb-5 text-sm leading-relaxed text-muted">
-                  {p.detail}
-                </p>
-                <div className="mb-2.5 text-[13px] font-semibold uppercase tracking-[0.06em] text-brand-soft-ink">
-                  Our response
-                </div>
-                <p className="text-sm leading-relaxed text-body-soft">
-                  {p.response}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <TrustComparison />
 
-      {/* HOW IT WORKS — existing content, kept verbatim */}
-      <section id="how-it-works" className="mx-auto max-w-6xl px-6 py-22">
-        <Heading as="h2" size="lg" className="mb-12">
-          How it works
-        </Heading>
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((s, i) => (
-            <div key={s.title}>
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-brand-soft font-semibold text-brand-soft-ink">
-                {i + 1}
-              </div>
-              <div className="mb-1.5 font-semibold">{s.title}</div>
-              <p className="text-sm leading-relaxed text-muted">{s.detail}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <HowItWorks />
 
       <WhySeedhiDeal />
       <DownloadApp />

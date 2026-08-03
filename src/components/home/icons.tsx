@@ -81,3 +81,111 @@ export function EasySellingIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+// ---------- Statistics band icons ----------
+
+export function CarIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M4 16v-3.2a2 2 0 0 1 .3-1L6 8.3A2 2 0 0 1 7.8 7h8.4a2 2 0 0 1 1.8 1.3l1.7 3.5a2 2 0 0 1 .3 1V16" />
+      <path d="M4 16h16v2a1 1 0 0 1-1 1h-1.5a1 1 0 0 1-1-1v-1h-9v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2Z" />
+      <circle cx="7.5" cy="16" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="16.5" cy="16" r="1.4" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function UsersIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="9" cy="8.5" r="3" />
+      <path d="M3.5 19.5a5.5 5.5 0 0 1 11 0" />
+      <path d="M16 5.8a3 3 0 0 1 0 5.8" />
+      <path d="M15.5 14.2a5.5 5.5 0 0 1 5 5.3" />
+    </svg>
+  );
+}
+
+export function MapPinIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M12 21s7-6.3 7-11.5A7 7 0 0 0 5 9.5C5 14.7 12 21 12 21Z" />
+      <circle cx="12" cy="9.5" r="2.5" />
+    </svg>
+  );
+}
+
+// ---------- Trust comparison (problem/solution) icons ----------
+
+export function IncognitoIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M3.5 15.5c1.4-5.3 5-8 8.5-8s7.1 2.7 8.5 8" />
+      <circle cx="7.5" cy="15.5" r="2.5" />
+      <circle cx="16.5" cy="15.5" r="2.5" />
+      <path d="M10 15h4" />
+    </svg>
+  );
+}
+
+export function SpamIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
+      <path d="m4 7 8 6 8-6" />
+      <path d="M17.5 2.5v3M16 4h3" stroke="currentColor" />
+    </svg>
+  );
+}
+
+export function PriceTagIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M11.5 3.5H19a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-.44 1.06l-8 8a1.5 1.5 0 0 1-2.12 0l-6.5-6.5a1.5 1.5 0 0 1 0-2.12l8-8a1.5 1.5 0 0 1 1.06-.44Z" />
+      <circle cx="15.5" cy="7.5" r="1.4" fill="currentColor" stroke="none" />
+      <path d="M10.3 13.7v.01M10.3 10.3a1 1 0 1 1 1.4 1.4c-.6.6-1.4 1-1.4 2" />
+    </svg>
+  );
+}
+
+export function ChartIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M4 20V10M9.5 20V4M15 20v-7M20.5 20V8" />
+      <path d="M3 20h18" />
+    </svg>
+  );
+}
+
+// ---------- How it works icons ----------
+
+export function ClipboardIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="5" y="4.5" width="14" height="16" rx="2" />
+      <rect x="9" y="3" width="6" height="3" rx="1" />
+      <path d="M8.5 11h7M8.5 14.5h7M8.5 18h4.5" />
+    </svg>
+  );
+}
+
+export function ChatIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M4 5.5h16v10.5a1.5 1.5 0 0 1-1.5 1.5H9l-5 4V5.5Z" />
+      <path d="M8 9.5h8M8 12.8h5" />
+    </svg>
+  );
+}
+
+export function HandshakeIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="m2.5 12 4-3.5 3 2 3.2-2.8a2 2 0 0 1 2.7.05L19 11.3" />
+      <path d="M6.5 8.5 3 12l4 4 1.3-1.2" />
+      <path d="m9.5 10.5 3 3a1.3 1.3 0 0 0 1.9-1.7" />
+      <path d="m12.5 13.5 1 1a1.3 1.3 0 0 0 1.9-1.7" />
+      <path d="M17.5 8.5 21 12l-4 4-2.2-2" />
+    </svg>
+  );
+}

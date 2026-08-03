@@ -19,17 +19,23 @@ const PILLARS = [
 
 export function WhySeedhiDeal() {
   return (
-    <section className="mx-auto max-w-6xl px-6 py-14">
-      <Heading as="h2" size="lg" className="mb-10">
+    <section className="mx-auto max-w-6xl px-6 py-20">
+      <Heading as="h2" size="lg" className="mb-3 text-center">
         Why SeedhiDeal
       </Heading>
-      <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
+      <p className="mx-auto mb-14 max-w-[520px] text-center text-muted">
+        Everything about the marketplace is built around one idea: trust you can verify.
+      </p>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
         {PILLARS.map((p) => (
-          <div key={p.title}>
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-brand-soft text-brand-soft-ink">
-              <p.icon className="h-5 w-5" />
+          <div
+            key={p.title}
+            className="group rounded-2xl border border-border bg-surface p-6 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-brand-soft hover:shadow-lg"
+          >
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-brand-soft text-brand-soft-ink transition-transform duration-300 group-hover:scale-110">
+              <p.icon className="h-6 w-6" />
             </div>
-            <div className="mb-1.5 font-semibold">{p.title}</div>
+            <div className="mb-2 font-semibold">{p.title}</div>
             <p className="text-sm leading-relaxed text-muted">{p.detail}</p>
           </div>
         ))}
