@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import {
   editListingAction,
   submitListingAction,
   type ListingFormState,
 } from "@/lib/actions/marketplace";
 import { Button, Card, Input, Label, Select, Textarea } from "@/components/ui";
+import { PhotoManager } from "@/components/dashboard/photo-manager";
 import {
   ASSEMBLY_OPTIONS,
   BODY_TYPES,
@@ -60,23 +61,6 @@ export function SellForm({
 }) {
   const action = mode === "edit" ? editListingAction : submitListingAction;
   const [state, formAction, pending] = useActionState<ListingFormState, FormData>(action, {});
-  const [previews, setPreviews] = useState<string[]>([]);
-  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
-
-  function onPhotosChange(e: React.ChangeEvent<HTMLInputElement>) {
-    previews.forEach((url) => URL.revokeObjectURL(url));
-    const files = Array.from(e.target.files ?? []).slice(0, MAX_PHOTOS);
-    setPreviews(files.map((f) => URL.createObjectURL(f)));
-  }
-
-  function toggleRemove(id: string) {
-    setRemovedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
 
   const d = defaultValues;
   const disclosures = d?.disclosures;
@@ -85,9 +69,6 @@ export function SellForm({
     <Card className="p-5">
       <form action={formAction} className="space-y-5">
         {mode === "edit" && listingId && <input type="hidden" name="listingId" value={listingId} />}
-        {[...removedIds].map((id) => (
-          <input key={id} type="hidden" name="removePhotoIds" value={id} />
-        ))}
 
         <fieldset className="space-y-4">
           <legend className="font-semibold">Vehicle</legend>
@@ -258,58 +239,18 @@ export function SellForm({
 
         <fieldset className="space-y-3">
           <legend className="font-semibold">Photos</legend>
-
-          {existingPhotos.length > 0 && (
-            <div>
-              <p className="text-xs text-muted">Current photos — uncheck to remove one</p>
-              <div className="mt-2 grid grid-cols-4 gap-2">
-                {existingPhotos.map((p) => (
-                  <label key={p.id} className="relative block">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={p.storageKey}
-                      alt=""
-                      className={`aspect-square rounded-input object-cover ${removedIds.has(p.id) ? "opacity-30" : ""}`}
-                    />
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      onChange={() => toggleRemove(p.id)}
-                      className="absolute right-1.5 top-1.5 h-4 w-4"
-                      aria-label="Keep this photo"
-                    />
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
           <p className="text-xs text-muted">
             {mode === "edit"
-              ? `Add more photos, or leave this empty to keep your current set. Keep ${MIN_PHOTOS}–${MAX_PHOTOS} total.`
-              : `Upload ${MIN_PHOTOS}–${MAX_PHOTOS} clear photos — front, rear, both sides, interior and odometer help buyers trust the listing.`}
+              ? `Drag to reorder, set a cover, delete, or add more. Keep ${MIN_PHOTOS}–${MAX_PHOTOS} total — changes here save instantly.`
+              : `Upload ${MIN_PHOTOS}–${MAX_PHOTOS} clear photos — front, rear, both sides, interior and odometer help buyers trust the listing. Drag to reorder; the first photo is the cover shown everywhere.`}
           </p>
-          <Input
-            type="file"
-            name="photos"
-            accept="image/jpeg,image/png,image/webp"
-            multiple
-            required={mode === "create"}
-            onChange={onPhotosChange}
+          <PhotoManager
+            mode={mode}
+            listingId={listingId}
+            initialPhotos={existingPhotos}
+            minPhotos={MIN_PHOTOS}
+            maxPhotos={MAX_PHOTOS}
           />
-          {previews.length > 0 && (
-            <div className="grid grid-cols-4 gap-2">
-              {previews.map((url, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={url}
-                  src={url}
-                  alt={`Selected photo ${i + 1}`}
-                  className="aspect-square rounded-input object-cover"
-                />
-              ))}
-            </div>
-          )}
         </fieldset>
 
         <fieldset className="space-y-4">

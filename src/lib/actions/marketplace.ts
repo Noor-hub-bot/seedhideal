@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import {
   auditLog,
@@ -305,6 +305,123 @@ export async function editListingAction(
   revalidatePath("/dashboard/listings");
   revalidatePath(`/cars/${listingId}`);
   redirect("/dashboard/listings?edited=1");
+}
+
+// ---------- Live photo management (edit page — reorder/cover/delete) ----------
+// Unlike editListingAction above, these apply instantly (no "save changes" step) since
+// they only ever touch listingPhotos, never the listing's own review status. "Cover photo"
+// is not a separate column — position 0 (lowest sortOrder) already means "the photo every
+// display surface picks first" (see enrichListings in lib/listing-enrichment.ts, and the
+// direct queries in cars/[id] and the homepage hero, all `ORDER BY sortOrder ASC`), so
+// "set as cover" and "reorder" are the same underlying write: persist a new sortOrder
+// sequence. No schema migration needed.
+
+async function persistPhotoOrder(orderedIds: string[]): Promise<void> {
+  await db.batch(
+    orderedIds.map((id, index) =>
+      db.update(listingPhotos).set({ sortOrder: index }).where(eq(listingPhotos.id, id)),
+    ) as unknown as Parameters<typeof db.batch>[0],
+  );
+}
+
+export type PhotoActionState = { error?: string };
+
+/** Persists a full drag-and-drop reorder. `orderedIds` must be exactly the current
+ * listing's photo ids in their new order — verified against the DB, not trusted blindly,
+ * so a tampered request can't touch another listing's photos or invent/drop rows. */
+export async function reorderListingPhotosAction(
+  listingId: string,
+  orderedIds: string[],
+): Promise<PhotoActionState> {
+  const user = await getSessionUser();
+  if (!user) redirect("/sign-in");
+  const listing = await loadOwnedListing(listingId, user.id);
+  if (!listing) return { error: "Listing not found." };
+
+  const current = await db
+    .select({ id: listingPhotos.id })
+    .from(listingPhotos)
+    .where(eq(listingPhotos.listingId, listingId));
+  const currentIds = new Set(current.map((p) => p.id));
+  if (orderedIds.length !== currentIds.size || orderedIds.some((id) => !currentIds.has(id))) {
+    return { error: "Photo order didn't match — please refresh and try again." };
+  }
+
+  await persistPhotoOrder(orderedIds);
+  revalidatePath(`/cars/${listingId}`);
+  revalidatePath("/dashboard/listings");
+  return {};
+}
+
+/** Moves one photo to the front (sortOrder 0) — "cover" is just "first", so this is a
+ * reorder where the chosen photo jumps to the head and everything else keeps its
+ * relative order behind it. */
+export async function setCoverPhotoAction(
+  listingId: string,
+  photoId: string,
+): Promise<PhotoActionState> {
+  const user = await getSessionUser();
+  if (!user) redirect("/sign-in");
+  const listing = await loadOwnedListing(listingId, user.id);
+  if (!listing) return { error: "Listing not found." };
+
+  const current = await db
+    .select({ id: listingPhotos.id })
+    .from(listingPhotos)
+    .where(eq(listingPhotos.listingId, listingId))
+    .orderBy(asc(listingPhotos.sortOrder));
+  if (!current.some((p) => p.id === photoId)) return { error: "Photo not found." };
+
+  const reordered = [photoId, ...current.map((p) => p.id).filter((id) => id !== photoId)];
+  await persistPhotoOrder(reordered);
+  revalidatePath(`/cars/${listingId}`);
+  revalidatePath("/dashboard/listings");
+  return {};
+}
+
+/** Deletes exactly one photo — from Neon Object Storage first (strict: any failure aborts
+ * before the database is touched, same rule as deleteListingAction), then its DB row, then
+ * renumbers what's left so sortOrder stays contiguous 0..n-1. Refuses to go below
+ * MIN_PHOTOS. Because the remaining photos are renumbered from the front, if the deleted
+ * photo was the cover (sortOrder 0), whatever photo is now first automatically becomes the
+ * new cover — no separate "reassign cover" step needed. */
+export async function deleteListingPhotoAction(
+  listingId: string,
+  photoId: string,
+): Promise<PhotoActionState> {
+  const user = await getSessionUser();
+  if (!user) redirect("/sign-in");
+  const listing = await loadOwnedListing(listingId, user.id);
+  if (!listing) return { error: "Listing not found." };
+
+  const current = await db
+    .select()
+    .from(listingPhotos)
+    .where(eq(listingPhotos.listingId, listingId))
+    .orderBy(asc(listingPhotos.sortOrder));
+  if (current.length <= MIN_PHOTOS) {
+    return { error: `A listing needs at least ${MIN_PHOTOS} photos — add one before removing another.` };
+  }
+  const target = current.find((p) => p.id === photoId);
+  if (!target) return { error: "Photo not found." };
+
+  try {
+    await deleteListingPhoto(target.storageKey);
+  } catch {
+    return { error: "Could not delete this photo from storage. Please try again." };
+  }
+
+  const remainingIds = current.filter((p) => p.id !== photoId).map((p) => p.id);
+  await db.batch([
+    db.delete(listingPhotos).where(eq(listingPhotos.id, photoId)),
+    ...remainingIds.map((id, index) =>
+      db.update(listingPhotos).set({ sortOrder: index }).where(eq(listingPhotos.id, id)),
+    ),
+  ] as unknown as Parameters<typeof db.batch>[0]);
+
+  revalidatePath(`/cars/${listingId}`);
+  revalidatePath("/dashboard/listings");
+  return {};
 }
 
 // ---------- Moderation (MOD-01/02/04) ----------

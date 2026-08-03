@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Image from "next/image";
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { db, listingPhotos, listings } from "@/db";
 import { Badge, ButtonLink, Card, Heading } from "@/components/ui";
 import { formatKm, formatPkr } from "@/lib/format";
@@ -98,6 +98,7 @@ async function fetchHeroListing(): Promise<
       .select()
       .from(listingPhotos)
       .where(eq(listingPhotos.listingId, listing.id))
+      .orderBy(asc(listingPhotos.sortOrder))
       .limit(1);
 
     return { listing, photo };

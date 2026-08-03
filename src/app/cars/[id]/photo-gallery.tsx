@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { PhotoLightbox } from "@/components/photo-lightbox";
 
 export function PhotoGallery({ photos, alt }: { photos: string[]; alt: string }) {
   const [active, setActive] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   if (photos.length === 0) {
     // Fallback for older/seeded listings created before photo upload existed
@@ -13,9 +15,22 @@ export function PhotoGallery({ photos, alt }: { photos: string[]; alt: string })
 
   return (
     <div>
-      <div className="relative h-72 overflow-hidden rounded-card">
+      <button
+        type="button"
+        onClick={() => setLightboxOpen(true)}
+        aria-label="View photo fullscreen"
+        className="relative block h-72 w-full overflow-hidden rounded-card"
+      >
         <Image src={photos[active]} alt={alt} fill className="object-cover" priority />
-      </div>
+      </button>
+      {lightboxOpen && (
+        <PhotoLightbox
+          photos={photos}
+          startIndex={active}
+          alt={alt}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
       {photos.length > 1 && (
         <div className="mt-2 flex gap-2 overflow-x-auto">
           {photos.map((url, i) => (
