@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
+import { useImageZoom } from "@/lib/use-image-zoom";
 
 export type PhotoCarouselProps = {
   photos: string[];
@@ -21,8 +22,13 @@ export type PhotoCarouselProps = {
   showThumbnails?: boolean;
   enableKeyboard?: boolean;
   /** Auto-advance interval in ms; 0/undefined disables autoplay. Pauses on hover and while
-   * a swipe is in progress. */
+   * a swipe/drag is in progress. */
   autoplayMs?: number;
+  /** Wheel/double-click/pinch/drag zoom on the main image (see src/lib/use-image-zoom.ts).
+   * Off by default — deliberately NOT enabled on the homepage hero carousel, where mixing
+   * zoom-drag with a small autoplaying teaser card would be more confusing than useful;
+   * the car detail page gallery turns this on. */
+  enableZoom?: boolean;
   onImageClick?: (index: number) => void;
   priority?: boolean;
   imageSizes?: string;
@@ -45,25 +51,34 @@ export function PhotoCarousel({
   showThumbnails = false,
   enableKeyboard = false,
   autoplayMs = 0,
+  enableZoom = false,
   onImageClick,
   priority = false,
   imageSizes = "100vw",
 }: PhotoCarouselProps) {
   const [index, setIndex] = useState(0);
   const [hovered, setHovered] = useState(false);
-  const touchStartX = useRef<number | null>(null);
-  const touchActive = useRef(false);
 
   const prev = () => setIndex((i) => (i - 1 + photos.length) % photos.length);
   const next = () => setIndex((i) => (i + 1) % photos.length);
 
+  // Swipe-to-navigate and arrow-key-to-navigate are handled by the zoom hook itself (see
+  // its doc comment) so that "only when not zoomed" is enforced in one place rather than
+  // coordinated across two separate gesture systems on the same element.
+  const { containerRef: zoomContainerRef, imageRef: zoomImageRef, zoomed, dragging, reset: resetZoom } = useImageZoom({
+    onSingleClick: () => onImageClick?.(index),
+    onSwipeLeft: next,
+    onSwipeRight: prev,
+    onArrowLeft: enableKeyboard ? prev : undefined,
+    onArrowRight: enableKeyboard ? next : undefined,
+    disabled: !enableZoom,
+  });
+
   useEffect(() => {
-    if (!autoplayMs || photos.length <= 1 || hovered) return;
-    const timer = setInterval(() => {
-      if (!touchActive.current) setIndex((i) => (i + 1) % photos.length);
-    }, autoplayMs);
+    if (!autoplayMs || photos.length <= 1 || hovered || dragging) return;
+    const timer = setInterval(() => setIndex((i) => (i + 1) % photos.length), autoplayMs);
     return () => clearInterval(timer);
-  }, [autoplayMs, photos.length, hovered]);
+  }, [autoplayMs, photos.length, hovered, dragging]);
 
   // Reset to the first photo if the underlying photo set changes (e.g. a different
   // listing's card) rather than carrying over a stale index from a previous set of a
@@ -75,32 +90,25 @@ export function PhotoCarousel({
     setIndex(0);
   }
 
-  function onKeyDown(e: React.KeyboardEvent) {
-    if (!enableKeyboard) return;
-    if (e.key === "ArrowLeft") prev();
-    else if (e.key === "ArrowRight") next();
-  }
-
-  function onTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
-    touchActive.current = true;
-  }
-  function onTouchEnd(e: React.TouchEvent) {
-    touchActive.current = false;
-    if (touchStartX.current === null) return;
-    const delta = e.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(delta) > 40) {
-      if (delta > 0) prev();
-      else next();
-    }
-    touchStartX.current = null;
-  }
+  // Zoom is a property of the currently-shown photo, not the carousel — always reset it
+  // when the active index changes (arrows, dots, thumbnails, swipe, or the reset-to-0
+  // above all funnel through here).
+  useEffect(() => {
+    resetZoom();
+  }, [index, resetZoom]);
 
   if (photos.length === 0) {
     return <div className={`photo-placeholder ${aspectClassName} ${roundedClassName} ${className}`}>vehicle photo</div>;
   }
 
   const arrowsVisible = showArrows === "always" || (showArrows === "hover" && hovered);
+  const cursorClass = !enableZoom
+    ? ""
+    : zoomed && dragging
+      ? "cursor-grabbing"
+      : zoomed
+        ? "cursor-zoom-out"
+        : "cursor-zoom-in";
 
   return (
     <div className={className}>
@@ -108,28 +116,55 @@ export function PhotoCarousel({
         className={`group relative w-full overflow-hidden ${roundedClassName} ${aspectClassName} ${
           whiteBackground && objectFit === "contain" ? "bg-white" : ""
         }`}
-        tabIndex={enableKeyboard ? 0 : undefined}
-        onKeyDown={onKeyDown}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
       >
-        <button
-          type="button"
-          onClick={() => onImageClick?.(index)}
-          aria-label={onImageClick ? "View photo fullscreen" : `Photo ${index + 1} of ${photos.length}`}
-          className="absolute inset-0"
-        >
-          <Image
-            src={photos[index]}
-            alt={`${alt} photo ${index + 1}`}
-            fill
-            priority={priority}
-            sizes={imageSizes}
-            className={objectFit === "contain" ? "object-contain" : "object-cover"}
-          />
-        </button>
+        {/* A plain focusable div, not a <button>, when zoom is enabled — the zoom hook
+            owns click detection itself (to disambiguate single/double click from a drag),
+            so a native button-click handler here would double-fire alongside it. Without
+            zoom, this stays a real <button> with a plain onClick, exactly as before. */}
+        {enableZoom ? (
+          <div
+            ref={zoomContainerRef as React.RefObject<HTMLDivElement>}
+            role="button"
+            tabIndex={0}
+            aria-label={onImageClick ? "View photo fullscreen. Scroll, pinch, or double-click to zoom." : `Photo ${index + 1} of ${photos.length}`}
+            className={`absolute inset-0 overflow-hidden ${cursorClass}`}
+          >
+            <div
+              ref={zoomImageRef as React.RefObject<HTMLDivElement>}
+              className="absolute inset-0"
+              style={{ transformOrigin: "center" }}
+            >
+              <Image
+                src={photos[index]}
+                alt={`${alt} photo ${index + 1}`}
+                fill
+                priority={priority}
+                draggable={false}
+                onDragStart={(e) => e.preventDefault()}
+                sizes={imageSizes}
+                className={objectFit === "contain" ? "object-contain" : "object-cover"}
+              />
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onImageClick?.(index)}
+            aria-label={onImageClick ? "View photo fullscreen" : `Photo ${index + 1} of ${photos.length}`}
+            className="absolute inset-0 overflow-hidden"
+          >
+            <Image
+              src={photos[index]}
+              alt={`${alt} photo ${index + 1}`}
+              fill
+              priority={priority}
+              sizes={imageSizes}
+              className={objectFit === "contain" ? "object-contain" : "object-cover"}
+            />
+          </button>
+        )}
 
         {showCounter && photos.length > 1 && (
           <span className="pointer-events-none absolute right-2 top-2 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-medium text-white">
@@ -146,6 +181,7 @@ export function PhotoCarousel({
                 e.stopPropagation();
                 prev();
               }}
+              onMouseDown={(e) => e.stopPropagation()}
               className={`absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/80 px-2.5 py-1.5 text-lg text-foreground shadow transition-opacity hover:bg-white ${
                 arrowsVisible ? "opacity-100" : "opacity-0"
               }`}
@@ -159,6 +195,7 @@ export function PhotoCarousel({
                 e.stopPropagation();
                 next();
               }}
+              onMouseDown={(e) => e.stopPropagation()}
               className={`absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/80 px-2.5 py-1.5 text-lg text-foreground shadow transition-opacity hover:bg-white ${
                 arrowsVisible ? "opacity-100" : "opacity-0"
               }`}

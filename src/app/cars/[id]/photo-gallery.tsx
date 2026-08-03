@@ -20,6 +20,7 @@ export function PhotoGallery({ photos, alt }: { photos: string[]; alt: string })
         showCounter
         showThumbnails
         enableKeyboard
+        enableZoom
         priority
         imageSizes="(min-width: 1024px) 896px, 100vw"
         onImageClick={(i) => setLightboxIndex(i)}
