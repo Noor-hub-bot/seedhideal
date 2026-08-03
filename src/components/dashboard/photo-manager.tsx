@@ -345,7 +345,8 @@ export function PhotoManager({
       {lightboxIndex !== null && (
         <PhotoLightbox
           photos={photoUrls}
-          startIndex={lightboxIndex}
+          index={lightboxIndex}
+          onIndexChange={setLightboxIndex}
           alt="Listing"
           onClose={() => setLightboxIndex(null)}
         />

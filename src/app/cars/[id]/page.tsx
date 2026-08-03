@@ -17,8 +17,8 @@ import { ReportForm } from "@/components/report-form";
 import { FavoriteButton } from "@/components/favorite-button";
 import { ShareListing } from "@/components/share-listing";
 import { SimilarCars } from "@/components/similar-cars";
+import { PhotoGallery } from "@/components/photo-gallery";
 import { InquiryForm } from "./inquiry-form";
-import { PhotoGallery } from "./photo-gallery";
 
 export default async function ListingDetailPage({
   params,
@@ -123,6 +123,17 @@ export default async function ListingDetailPage({
       <PhotoGallery
         photos={photos.map((p) => p.storageKey)}
         alt={`${listing.make} ${listing.model}`}
+        aspectClassName="aspect-video"
+        objectFit="contain"
+        whiteBackground
+        showArrows="always"
+        showDots
+        showCounter
+        showThumbnails
+        enableKeyboard
+        enableZoom
+        priority
+        imageSizes="(min-width: 1024px) 896px, 100vw"
       />
 
       <div className="mt-6 flex flex-wrap items-center gap-2.5">

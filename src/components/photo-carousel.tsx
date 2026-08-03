@@ -1,13 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import Image from "next/image";
 import { useImageZoom } from "@/lib/use-image-zoom";
+import { PhotoThumbnailStrip } from "@/components/photo-thumbnail-strip";
 
 export type PhotoCarouselProps = {
   photos: string[];
   alt: string;
   className?: string;
+  /** Controlled current-photo index — omit for the normal uncontrolled internal state
+   * (every plain carousel usage). Pass together with onIndexChange so a parent (e.g.
+   * PhotoGallery) can share one index between this carousel and a fullscreen lightbox
+   * instead of each owning its own duplicate copy. */
+  index?: number;
+  onIndexChange?: (index: number) => void;
   /** Tailwind aspect-ratio class for the main image box. Fixed up front (not derived from
    * the loaded image) so the layout never shifts once photos arrive. */
   aspectClassName?: string;
@@ -52,6 +59,8 @@ export function PhotoCarousel({
   photos,
   alt,
   className = "",
+  index: controlledIndex,
+  onIndexChange,
   aspectClassName = "aspect-video",
   roundedClassName = "rounded-card",
   objectFit = "contain",
@@ -69,8 +78,25 @@ export function PhotoCarousel({
   priority = false,
   imageSizes = "100vw",
 }: PhotoCarouselProps) {
-  const [index, setIndex] = useState(0);
+  const [uncontrolledIndex, setUncontrolledIndex] = useState(0);
+  const isIndexControlled = controlledIndex !== undefined;
+  const index = isIndexControlled ? controlledIndex : uncontrolledIndex;
+  // Mirrors the latest displayed index into a ref (not state) so setIndex's functional-
+  // update form always reads the true current value, even when called from a closure set
+  // up on an earlier render (e.g. the autoplay interval below) — the same "ref tracks
+  // latest render" pattern use-image-zoom.ts uses for zoomedRef. Written from an effect,
+  // never during render, per the react-hooks/refs rule.
+  const indexRef = useRef(index);
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
   const [hovered, setHovered] = useState(false);
+
+  function setIndex(updater: number | ((prev: number) => number)) {
+    const nextValue = typeof updater === "function" ? updater(indexRef.current) : updater;
+    if (!isIndexControlled) setUncontrolledIndex(nextValue);
+    onIndexChange?.(nextValue);
+  }
 
   const prev = () => setIndex((i) => (i - 1 + photos.length) % photos.length);
   const next = () => setIndex((i) => (i + 1) % photos.length);
@@ -87,20 +113,28 @@ export function PhotoCarousel({
     disabled: !enableZoom,
   });
 
+  // useEffectEvent (not a plain closure) so this effect's deps don't need `setIndex` —
+  // which is redefined every render — while still always advancing from the true latest
+  // index via indexRef above.
+  const advanceAutoplay = useEffectEvent(() => {
+    setIndex((i) => (i + 1) % photos.length);
+  });
   useEffect(() => {
     if (!autoplayMs || photos.length <= 1 || hovered || dragging) return;
-    const timer = setInterval(() => setIndex((i) => (i + 1) % photos.length), autoplayMs);
+    const timer = setInterval(advanceAutoplay, autoplayMs);
     return () => clearInterval(timer);
   }, [autoplayMs, photos.length, hovered, dragging]);
 
   // Reset to the first photo if the underlying photo set changes (e.g. a different
   // listing's card) rather than carrying over a stale index from a previous set of a
   // different length — adjusting state during render avoids a setState-in-effect
-  // cascading render.
+  // cascading render. Bypasses setIndex directly (rather than calling it, which would
+  // read indexRef) since ref access isn't allowed during render.
   const [trackedPhotos, setTrackedPhotos] = useState(photos);
   if (photos !== trackedPhotos) {
     setTrackedPhotos(photos);
-    setIndex(0);
+    if (!isIndexControlled) setUncontrolledIndex(0);
+    onIndexChange?.(0);
   }
 
   // Zoom is a property of the currently-shown photo, not the carousel — always reset it
@@ -188,7 +222,19 @@ export function PhotoCarousel({
             ref={zoomContainerRef as React.RefObject<HTMLDivElement>}
             role="button"
             tabIndex={0}
-            aria-label={onImageClick ? "View photo fullscreen. Scroll, pinch, or double-click to zoom." : `Photo ${index + 1} of ${photos.length}`}
+            aria-label={
+              onImageClick
+                ? enableZoom
+                  ? "View photo fullscreen. Scroll, pinch, or double-click to zoom."
+                  : "View photo fullscreen."
+                : `Photo ${index + 1} of ${photos.length}`
+            }
+            // The hook owns click detection internally (mousedown/mouseup, not a native
+            // "click" listener) — but the browser still fires a real click afterward that
+            // bubbles normally, which would otherwise trigger a card's wrapping <Link> to
+            // navigate at the same time onImageClick opens the fullscreen gallery. This
+            // stopPropagation (same pattern as the arrow/dot buttons below) consumes it.
+            onClick={(e) => e.stopPropagation()}
             className={`absolute inset-0 overflow-hidden ${cursorClass}`}
           >
             <div
@@ -275,23 +321,8 @@ export function PhotoCarousel({
 
       {dotsPosition === "below" && dots}
 
-      {showThumbnails && photos.length > 1 && (
-        <div className="mt-2 flex gap-2 overflow-x-auto">
-          {photos.map((url, i) => (
-            <button
-              key={url}
-              type="button"
-              onClick={() => setIndex(i)}
-              aria-label={`Show photo ${i + 1}`}
-              aria-current={i === index}
-              className={`relative h-16 w-20 shrink-0 overflow-hidden rounded-input border-2 ${
-                i === index ? "border-brand" : "border-transparent"
-              }`}
-            >
-              <Image src={url} alt={`${alt} thumbnail ${i + 1}`} fill className="object-cover" sizes="80px" />
-            </button>
-          ))}
-        </div>
+      {showThumbnails && (
+        <PhotoThumbnailStrip photos={photos} alt={alt} index={index} onSelect={setIndex} className="mt-2" />
       )}
     </div>
   );

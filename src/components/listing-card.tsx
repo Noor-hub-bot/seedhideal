@@ -4,7 +4,7 @@ import { formatKm, formatPkr } from "@/lib/format";
 import { FavoriteButton } from "@/components/favorite-button";
 import { CompareCheckbox } from "@/components/compare-checkbox";
 import { CheckIcon, StarIcon } from "@/components/home/icons";
-import { PhotoCarousel } from "@/components/photo-carousel";
+import { PhotoGallery } from "@/components/photo-gallery";
 import type { listings } from "@/db";
 
 type Listing = typeof listings.$inferSelect;
@@ -122,7 +122,7 @@ function ListingPhoto({
     return <div className={`photo-placeholder ${className}`}>vehicle photo</div>;
   }
   return (
-    <PhotoCarousel
+    <PhotoGallery
       photos={photos}
       alt={alt}
       className={className}
