@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { MAX_PHOTOS, MIN_PHOTOS } from "@/lib/constants";
 
 export { MIN_PHOTOS, MAX_PHOTOS };
@@ -117,6 +117,21 @@ async function uploadPublicImage(file: File, key: string): Promise<string> {
 export async function uploadListingPhoto(file: File, listingId: string): Promise<string> {
   const ext = EXT_BY_TYPE[file.type];
   return uploadPublicImage(file, `listings/${listingId}/${randomUUID()}.${ext}`);
+}
+
+/** Deletes a previously uploaded listing photo given its stored URL (from
+ * uploadListingPhoto) — used when a seller removes a photo while editing a listing.
+ * Best-effort: callers should not fail the surrounding action if this rejects, since the
+ * listingPhotos row is the source of truth for what's actually displayed. */
+export async function deleteListingPhoto(url: string): Promise<void> {
+  if (useLocalFallback) {
+    if (!url.startsWith("/uploads/")) return;
+    await unlink(path.join(process.cwd(), "public", url));
+    return;
+  }
+  if (!PUBLIC_URL_BASE || !url.startsWith(`${PUBLIC_URL_BASE}/`)) return;
+  const key = url.slice(PUBLIC_URL_BASE.length + 1);
+  await client!.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
 }
 
 /** Uploads a dealer logo/cover image and returns its public URL. Mirrors

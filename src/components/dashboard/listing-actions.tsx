@@ -4,7 +4,7 @@ import {
   resumeListingAction,
   withdrawListingAction,
 } from "@/lib/actions/marketplace";
-import { Badge, Button, Input } from "@/components/ui";
+import { Badge, Button, ButtonLink, Input } from "@/components/ui";
 import { BoostListingForm } from "@/components/boost-listing-form";
 import { formatDate } from "@/lib/format";
 import type { featuredPlans, listingBoosts, listings } from "@/db";
@@ -58,6 +58,9 @@ export function ListingActions({ status, listingId }: { status: string; listingI
             Pause
           </Button>
         </form>
+        <ButtonLink href={`/dashboard/listings/${listingId}/edit`} variant="tertiary" className="px-2 py-2 text-xs">
+          Edit
+        </ButtonLink>
       </div>
     );
   }
@@ -76,17 +79,25 @@ export function ListingActions({ status, listingId }: { status: string; listingI
             Mark sold
           </Button>
         </form>
+        <ButtonLink href={`/dashboard/listings/${listingId}/edit`} variant="tertiary" className="px-2 py-2 text-xs">
+          Edit
+        </ButtonLink>
       </div>
     );
   }
   if (["draft", "submitted", "under_review", "correction"].includes(status)) {
     return (
-      <form action={withdrawListingAction}>
-        <input type="hidden" name="listingId" value={listingId} />
-        <Button type="submit" variant="tertiary" className="px-2 py-2 text-xs">
-          Withdraw
-        </Button>
-      </form>
+      <div className="flex items-center gap-2">
+        <ButtonLink href={`/dashboard/listings/${listingId}/edit`} variant="secondary" className="px-3 py-2 text-xs">
+          Edit
+        </ButtonLink>
+        <form action={withdrawListingAction}>
+          <input type="hidden" name="listingId" value={listingId} />
+          <Button type="submit" variant="tertiary" className="px-2 py-2 text-xs">
+            Withdraw
+          </Button>
+        </form>
+      </div>
     );
   }
   return null;

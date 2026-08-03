@@ -20,6 +20,7 @@ import {
   MAX_PHOTO_BYTES,
   MAX_PHOTOS,
   MIN_PHOTOS,
+  deleteListingPhoto,
   detectFileType,
   uploadListingPhoto,
 } from "@/lib/storage";
@@ -65,6 +66,10 @@ const listingSchema = z.object({
 });
 
 const BLOCKING_STATES = new Set(["submitted", "under_review", "correction", "paused"]);
+
+// Every non-terminal status — a listing here can still be withdrawn by its seller, and
+// (separately) edited. Terminal states (sold/expired/closed/suspended) are excluded from both.
+const MUTABLE_STATES = new Set(["draft", "submitted", "under_review", "correction", "active", "paused"]);
 
 /**
  * Returns the seller's listing that currently blocks a new submission (LST-01: one free
@@ -178,6 +183,124 @@ export async function submitListingAction(
   redirect("/dashboard?submitted=1");
 }
 
+/** Edits a seller's own listing. Reuses listingSchema (same field set as create) and the
+ * same photo validation, but photos are optional here (existing ones may already satisfy
+ * MIN_PHOTOS) and can be individually removed via `removePhotoIds`. Any successful edit
+ * sends the listing back to "submitted" for re-review — content changed, so it needs to be
+ * re-checked the same way a fresh submission does, regardless of what status it was in. */
+export async function editListingAction(
+  _prev: ListingFormState,
+  formData: FormData,
+): Promise<ListingFormState> {
+  const user = await getSessionUser();
+  const listingId = String(formData.get("listingId"));
+  if (!user) redirect(`/sign-in?next=/dashboard/listings/${listingId}/edit`);
+  if (user.status !== "active") return { error: "Your account cannot edit listings right now. Contact support." };
+
+  const listing = await loadOwnedListing(listingId, user.id);
+  if (!listing) return { error: "Listing not found." };
+  if (!MUTABLE_STATES.has(listing.status)) return { error: "This listing can no longer be edited." };
+
+  const parsed = listingSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    return { error: `${first.path.join(".")}: ${first.message}` };
+  }
+  const v = parsed.data;
+
+  const removeIds = new Set(formData.getAll("removePhotoIds").map(String));
+  const existingPhotos = await db
+    .select()
+    .from(listingPhotos)
+    .where(eq(listingPhotos.listingId, listingId))
+    .orderBy(listingPhotos.sortOrder);
+  const keptPhotos = existingPhotos.filter((p) => !removeIds.has(p.id));
+  const removedPhotos = existingPhotos.filter((p) => removeIds.has(p.id));
+
+  const newPhotos = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
+
+  const finalPhotoCount = keptPhotos.length + newPhotos.length;
+  if (finalPhotoCount < MIN_PHOTOS) {
+    return { error: `Keep at least ${MIN_PHOTOS} photos (front, side, and interior).` };
+  }
+  if (finalPhotoCount > MAX_PHOTOS) {
+    return { error: `Keep at most ${MAX_PHOTOS} photos.` };
+  }
+  for (const photo of newPhotos) {
+    if (!ALLOWED_PHOTO_TYPES.has(photo.type)) {
+      return { error: "Photos must be JPG, PNG or WEBP." };
+    }
+    if (photo.size > MAX_PHOTO_BYTES) {
+      return { error: "Each photo must be under 6MB." };
+    }
+    const actualType = detectFileType(new Uint8Array(await photo.arrayBuffer()));
+    if (actualType !== photo.type) {
+      return { error: "One of your photos doesn't look like a valid JPG, PNG or WEBP file." };
+    }
+  }
+
+  await db
+    .update(listings)
+    .set({
+      status: "submitted",
+      rejectionReason: null,
+      make: v.make,
+      model: v.model,
+      variant: v.variant || null,
+      year: v.year,
+      city: v.city,
+      registrationCity: v.registrationCity || null,
+      mileageKm: v.mileageKm,
+      transmission: v.transmission,
+      fuel: v.fuel,
+      engineCc: v.engineCc ?? null,
+      askingPricePkr: v.askingPricePkr,
+      ownershipCount: v.ownershipCount ?? null,
+      sellerType: v.sellerType,
+      bodyType: v.bodyType || null,
+      exteriorColor: v.exteriorColor || null,
+      interiorColor: v.interiorColor || null,
+      assembly: v.assembly || null,
+      description: v.description || null,
+      disclosures: {
+        paintedPanels: v.paintedPanels,
+        accidentHistory: v.accidentHistory,
+        mechanicalIssues: v.mechanicalIssues,
+        documents: v.documents,
+      },
+      updatedAt: new Date(),
+    })
+    .where(eq(listings.id, listingId));
+
+  for (const photo of removedPhotos) {
+    await db.delete(listingPhotos).where(eq(listingPhotos.id, photo.id));
+    await deleteListingPhoto(photo.storageKey).catch(() => {});
+  }
+
+  for (const [index, photo] of newPhotos.entries()) {
+    const storageKey = await uploadListingPhoto(photo, listingId);
+    await db.insert(listingPhotos).values({
+      listingId,
+      kind: PHOTO_KIND_ORDER[keptPhotos.length + index] ?? "other",
+      storageKey,
+      sortOrder: keptPhotos.length + index,
+    });
+  }
+
+  await db.insert(auditLog).values({
+    actorId: user.id,
+    objectType: "listing",
+    objectId: listingId,
+    action: "edited",
+    priorState: listing.status,
+    newState: "submitted",
+  });
+
+  revalidatePath("/dashboard/listings");
+  revalidatePath(`/cars/${listingId}`);
+  redirect("/dashboard/listings?edited=1");
+}
+
 // ---------- Moderation (MOD-01/02/04) ----------
 
 export async function moderateListingAction(formData: FormData): Promise<void> {
@@ -236,7 +359,7 @@ export async function moderateListingAction(formData: FormData): Promise<void> {
 
 // ---------- Listing lifecycle (seller-initiated) ----------
 
-async function loadOwnedListing(listingId: string, sellerId: string) {
+export async function loadOwnedListing(listingId: string, sellerId: string) {
   const [listing] = await db.select().from(listings).where(eq(listings.id, listingId));
   if (!listing || listing.sellerId !== sellerId) return null;
   return listing;
@@ -320,21 +443,12 @@ export async function resumeListingAction(formData: FormData): Promise<void> {
   await transitionListing(listingId, user.id, listing.status, { status: "active" }, "resumed");
 }
 
-const WITHDRAWABLE_STATES = new Set([
-  "draft",
-  "submitted",
-  "under_review",
-  "correction",
-  "active",
-  "paused",
-]);
-
 export async function withdrawListingAction(formData: FormData): Promise<void> {
   const user = await getSessionUser();
   if (!user) redirect("/sign-in");
   const listingId = String(formData.get("listingId"));
   const listing = await loadOwnedListing(listingId, user.id);
-  if (!listing || !WITHDRAWABLE_STATES.has(listing.status)) return;
+  if (!listing || !MUTABLE_STATES.has(listing.status)) return;
 
   await transitionListing(listingId, user.id, listing.status, { status: "closed" }, "withdrawn");
 }
