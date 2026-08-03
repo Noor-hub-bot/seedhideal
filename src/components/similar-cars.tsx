@@ -40,7 +40,7 @@ export async function SimilarCars({ current, viewer }: { current: Listing; viewe
 
   if (results.length === 0) return null;
 
-  const { verifiedSellers, photoByListing, favoritedSet } = await enrichListings(results, viewer);
+  const { verifiedSellers, photosByListing, favoritedSet } = await enrichListings(results, viewer);
 
   return (
     <div className="mt-10">
@@ -51,7 +51,7 @@ export async function SimilarCars({ current, viewer }: { current: Listing; viewe
             <ListingCard
               listing={l}
               sellerVerified={verifiedSellers.has(l.sellerId)}
-              photoUrl={photoByListing.get(l.id)}
+              photos={photosByListing.get(l.id) ?? []}
               favorited={favoritedSet.has(l.id)}
               signedIn={!!viewer}
             />

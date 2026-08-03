@@ -21,7 +21,7 @@ export default async function FavoritesPage() {
     .orderBy(desc(favorites.createdAt));
 
   const savedListings = saved.map((s) => s.listing);
-  const { verifiedSellers, photoByListing } = await enrichListings(savedListings, user);
+  const { verifiedSellers, photosByListing } = await enrichListings(savedListings, user);
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
@@ -40,7 +40,7 @@ export default async function FavoritesPage() {
               key={listing.id}
               listing={listing}
               sellerVerified={verifiedSellers.has(listing.sellerId)}
-              photoUrl={photoByListing.get(listing.id)}
+              photos={photosByListing.get(listing.id) ?? []}
               favorited
               signedIn
             />

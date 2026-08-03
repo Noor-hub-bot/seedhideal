@@ -28,7 +28,7 @@ export default async function RecentlyViewedPage() {
   const listingById = new Map(viewedListings.map((l) => [l.id, l]));
   const ordered = listingIds.map((id) => listingById.get(id)).filter((l) => !!l);
 
-  const { verifiedSellers, photoByListing, favoritedSet } = await enrichListings(ordered, user);
+  const { verifiedSellers, photosByListing, favoritedSet } = await enrichListings(ordered, user);
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-10">
@@ -46,7 +46,7 @@ export default async function RecentlyViewedPage() {
               key={l.id}
               listing={l}
               sellerVerified={verifiedSellers.has(l.sellerId)}
-              photoUrl={photoByListing.get(l.id)}
+              photos={photosByListing.get(l.id) ?? []}
               favorited={favoritedSet.has(l.id)}
               signedIn
             />

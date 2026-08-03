@@ -44,7 +44,7 @@ export async function PremiumPicks() {
   }, null);
 
   if (!data) return null;
-  const { results, viewer, verifiedSellers, photoByListing, favoritedSet } = data;
+  const { results, viewer, verifiedSellers, photosByListing, favoritedSet } = data;
 
   return (
     <section className="mx-auto max-w-6xl px-6 py-14">
@@ -55,7 +55,7 @@ export async function PremiumPicks() {
             <ListingCard
               listing={l}
               sellerVerified={verifiedSellers.has(l.sellerId)}
-              photoUrl={photoByListing.get(l.id)}
+              photos={photosByListing.get(l.id) ?? []}
               favorited={favoritedSet.has(l.id)}
               signedIn={!!viewer}
             />

@@ -41,7 +41,7 @@ export async function FeaturedCars() {
   }, null);
 
   if (!data) return null;
-  const { results, viewer, verifiedSellers, photoByListing, favoritedSet } = data;
+  const { results, viewer, verifiedSellers, photosByListing, favoritedSet } = data;
 
   // Featured Analytics — best-effort impression count for the shown listings'
   // active boosts. Never blocks or breaks the section if it fails.
@@ -68,7 +68,7 @@ export async function FeaturedCars() {
             <ListingCard
               listing={l}
               sellerVerified={verifiedSellers.has(l.sellerId)}
-              photoUrl={photoByListing.get(l.id)}
+              photos={photosByListing.get(l.id) ?? []}
               favorited={favoritedSet.has(l.id)}
               signedIn={!!viewer}
             />

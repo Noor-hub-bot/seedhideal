@@ -1,10 +1,10 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Badge, Card } from "@/components/ui";
 import { formatKm, formatPkr } from "@/lib/format";
 import { FavoriteButton } from "@/components/favorite-button";
 import { CompareCheckbox } from "@/components/compare-checkbox";
 import { CheckIcon, StarIcon } from "@/components/home/icons";
+import { PhotoCarousel } from "@/components/photo-carousel";
 import type { listings } from "@/db";
 
 type Listing = typeof listings.$inferSelect;
@@ -14,14 +14,14 @@ type Listing = typeof listings.$inferSelect;
 export function ListingCard({
   listing,
   sellerVerified,
-  photoUrl,
+  photos = [],
   favorited = false,
   signedIn = false,
   layout = "grid",
 }: {
   listing: Listing;
   sellerVerified: boolean;
-  photoUrl?: string;
+  photos?: string[];
   favorited?: boolean;
   signedIn?: boolean;
   layout?: "grid" | "list";
@@ -35,7 +35,7 @@ export function ListingCard({
       <div className="group relative block">
         <Link href={href} className="block">
           <Card className="flex overflow-hidden transition-shadow group-hover:shadow-sm">
-            <ListingPhoto photoUrl={photoUrl} alt={title} className="w-[220px] flex-shrink-0 self-stretch" />
+            <ListingPhoto photos={photos} alt={title} className="w-[220px] flex-shrink-0 self-stretch" />
             <div className="flex flex-1 flex-col justify-center px-6 py-5">
               <div className="mb-2 flex items-start justify-between gap-3">
                 <h3 className="text-lg font-semibold">{title}</h3>
@@ -76,7 +76,7 @@ export function ListingCard({
     <div className="group relative block">
       <Link href={href} className="block">
         <Card className="overflow-hidden transition-shadow group-hover:shadow-sm">
-          <ListingPhoto photoUrl={photoUrl} alt={title} className="h-[180px]" />
+          <ListingPhoto photos={photos} alt={title} className="h-[180px]" />
           <div className="p-[18px]">
             <div className="mb-2 flex items-start justify-between gap-3">
               <h3 className="text-[17px] font-semibold">{title}</h3>
@@ -110,30 +110,35 @@ export function ListingCard({
 }
 
 function ListingPhoto({
-  photoUrl,
+  photos,
   alt,
   className = "",
 }: {
-  photoUrl?: string;
+  photos: string[];
   alt: string;
   className?: string;
 }) {
-  if (!photoUrl) {
+  if (photos.length === 0) {
     return <div className={`photo-placeholder ${className}`}>vehicle photo</div>;
   }
   return (
-    <div className={`relative ${className}`}>
-      {/* Card renders at a fixed ~260-280px in the homepage's horizontal rails
-          (CarRailItem) and responsively (up to ~50vw/100vw) in the /cars browse
-          grid — this covers both without needing a per-usage sizes prop. */}
-      <Image
-        src={photoUrl}
-        alt={alt}
-        fill
-        sizes="(min-width: 1024px) 280px, (min-width: 640px) 45vw, 90vw"
-        className="object-cover"
-      />
-    </div>
+    <PhotoCarousel
+      photos={photos}
+      alt={alt}
+      className={className}
+      aspectClassName="h-full"
+      roundedClassName="rounded-none"
+      objectFit="contain"
+      whiteBackground
+      showArrows="hover-desktop"
+      showDots
+      dotsPosition="overlay"
+      fadeTransition
+      // Card renders at a fixed ~260-280px in the homepage's horizontal rails
+      // (CarRailItem) and responsively (up to ~50vw/100vw) in the /cars browse
+      // grid — this covers both without needing a per-usage sizes prop.
+      imageSizes="(min-width: 1024px) 280px, (min-width: 640px) 45vw, 90vw"
+    />
   );
 }
 

@@ -225,7 +225,7 @@ export default async function BrowsePage({
   const total = totalRows[0].total;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  const { verifiedSellers, photoByListing, favoritedSet } = await enrichListings(results, viewer);
+  const { verifiedSellers, photosByListing, favoritedSet } = await enrichListings(results, viewer);
 
   const layoutHref = (l: "grid" | "list") => {
     const sp = new URLSearchParams();
@@ -325,7 +325,7 @@ export default async function BrowsePage({
                   listing={l}
                   layout="list"
                   sellerVerified={verifiedSellers.has(l.sellerId)}
-                  photoUrl={photoByListing.get(l.id)}
+                  photos={photosByListing.get(l.id) ?? []}
                   favorited={favoritedSet.has(l.id)}
                   signedIn={!!viewer}
                 />
@@ -338,7 +338,7 @@ export default async function BrowsePage({
                   key={l.id}
                   listing={l}
                   sellerVerified={verifiedSellers.has(l.sellerId)}
-                  photoUrl={photoByListing.get(l.id)}
+                  photos={photosByListing.get(l.id) ?? []}
                   favorited={favoritedSet.has(l.id)}
                   signedIn={!!viewer}
                 />

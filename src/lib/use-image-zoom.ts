@@ -138,7 +138,11 @@ export function useImageZoom({
 
   useEffect(() => {
     const el = containerRef.current;
-    if (!el || disabled) return;
+    if (!el) return;
+    // `disabled` only turns off the ZOOM-specific gestures (wheel, pinch, double-click/tap
+    // toggle, drag-to-pan, +/-/Escape) below — swipe-to-navigate, single-click, and
+    // arrow-key navigation stay active unconditionally. A carousel with zoom turned off
+    // (every card carousel, and the homepage hero) still needs all of those to work.
 
     /** Shared math behind wheel, pinch, and double-click/tap zoom: rescale to `newScale`
      * while keeping the point at (clientX, clientY) visually anchored. */
@@ -165,6 +169,7 @@ export function useImageZoom({
     }
 
     function toggleZoomAt(clientX: number, clientY: number) {
+      if (disabled) return;
       if (zoomedRef.current) reset();
       else zoomToPoint(DOUBLE_TAP_SCALE, clientX, clientY);
     }
@@ -240,6 +245,7 @@ export function useImageZoom({
     }
 
     function onWheel(e: WheelEvent) {
+      if (disabled) return;
       e.preventDefault();
       zoomToPoint(transform.current.scale * (1 - e.deltaY * WHEEL_SENSITIVITY), e.clientX, e.clientY);
     }
@@ -272,6 +278,7 @@ export function useImageZoom({
     }
     function onTouchMove(e: TouchEvent) {
       if (e.touches.length === 2) {
+        if (disabled) return;
         e.preventDefault();
         const [a, b] = [e.touches[0], e.touches[1]];
         const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
@@ -314,12 +321,13 @@ export function useImageZoom({
         }
         return;
       }
-      if (e.key === "+" || e.key === "=") {
+      if (disabled) {
+        // Zoom shortcuts end here — arrow-key photo navigation (below) still applies.
+      } else if (e.key === "+" || e.key === "=") {
         e.preventDefault();
         zoomKeepingCenter(transform.current.scale + KEYBOARD_ZOOM_STEP);
         return;
-      }
-      if (e.key === "-" || e.key === "_") {
+      } else if (e.key === "-" || e.key === "_") {
         e.preventDefault();
         zoomKeepingCenter(transform.current.scale - KEYBOARD_ZOOM_STEP);
         return;

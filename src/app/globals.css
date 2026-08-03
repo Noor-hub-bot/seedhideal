@@ -108,3 +108,17 @@
   align-items: center;
   justify-content: center;
 }
+
+/* Fade-in for the incoming photo on a carousel index change (PhotoCarousel's
+   fadeTransition prop) — replayed each time by remounting with key={index}. */
+@keyframes carousel-photo-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.carousel-photo-fade {
+  animation: carousel-photo-fade-in 300ms ease-out;
+}

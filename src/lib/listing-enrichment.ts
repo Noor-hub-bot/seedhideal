@@ -5,8 +5,8 @@ import type { SessionUser } from "@/lib/auth";
 type Listing = typeof listings.$inferSelect;
 
 /**
- * Resolves the per-card data a ListingCard needs (seller verified?, cover
- * photo, favorited?) for a batch of listings — shared by /cars and every
+ * Resolves the per-card data a ListingCard needs (seller verified?, ordered
+ * photo set, favorited?) for a batch of listings — shared by /cars and every
  * homepage rail section so this join logic exists in exactly one place.
  */
 export async function enrichListings(results: Listing[], viewer: SessionUser | null) {
@@ -41,11 +41,13 @@ export async function enrichListings(results: Listing[], viewer: SessionUser | n
   ]);
 
   const verifiedSellers = new Set(verifiedRows.map((r) => r.userId));
-  const photoByListing = new Map<string, string>();
+  const photosByListing = new Map<string, string[]>();
   for (const p of photoRows) {
-    if (!photoByListing.has(p.listingId)) photoByListing.set(p.listingId, p.storageKey);
+    const existing = photosByListing.get(p.listingId);
+    if (existing) existing.push(p.storageKey);
+    else photosByListing.set(p.listingId, [p.storageKey]);
   }
   const favoritedSet = new Set(favoritedRows.map((f) => f.listingId));
 
-  return { verifiedSellers, photoByListing, favoritedSet };
+  return { verifiedSellers, photosByListing, favoritedSet };
 }

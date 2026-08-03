@@ -88,7 +88,7 @@ export default async function DealerProfilePage({
     .orderBy(desc(reviews.createdAt))
     .limit(6);
 
-  const { verifiedSellers, photoByListing, favoritedSet } = await enrichListings(inventory, viewer);
+  const { verifiedSellers, photosByListing, favoritedSet } = await enrichListings(inventory, viewer);
 
   const rating = avgRating ? Number(avgRating) : null;
 
@@ -187,7 +187,7 @@ export default async function DealerProfilePage({
                 key={l.id}
                 listing={l}
                 sellerVerified={verifiedSellers.has(l.sellerId)}
-                photoUrl={photoByListing.get(l.id)}
+                photos={photosByListing.get(l.id) ?? []}
                 favorited={favoritedSet.has(l.id)}
                 signedIn={!!viewer}
               />
