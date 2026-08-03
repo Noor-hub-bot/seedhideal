@@ -2,16 +2,22 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import {
   auditLog,
   db,
   favorites,
   inquiries,
+  listingBoosts,
   listingPhotos,
   listings,
   messages,
+  offers,
+  recentlyViewed,
+  reports,
+  reviews,
+  visits,
 } from "@/db";
 import { getSessionUser, requireStaff } from "@/lib/auth";
 import { notify } from "@/lib/notify";
@@ -451,6 +457,85 @@ export async function withdrawListingAction(formData: FormData): Promise<void> {
   if (!listing || !MUTABLE_STATES.has(listing.status)) return;
 
   await transitionListing(listingId, user.id, listing.status, { status: "closed" }, "withdrawn");
+}
+
+export type DeleteListingState = { error?: string };
+
+/** Permanently deletes a listing and everything that references it. Unlike every other
+ * lifecycle action here, this is irreversible — there is no status to transition back
+ * from. Available regardless of the listing's current status (including terminal ones
+ * like sold/expired/closed, where it's the only remaining action).
+ *
+ * neon-http (this project's Postgres driver) has no interactive transaction support —
+ * `db.transaction()` throws "No transactions support in neon-http driver" unconditionally
+ * (confirmed directly in node_modules/drizzle-orm/neon-http/session.js). `db.batch([...])`
+ * is the driver's actual atomicity primitive: Neon's serverless client sends the whole
+ * batch as one HTTP request, executed as a single all-or-nothing transaction server-side.
+ * That's what satisfies "no partial deletes" here.
+ *
+ * Storage deletion happens BEFORE the batch and is checked strictly: if any photo fails to
+ * delete from Neon Object Storage, we bail out before the batch ever runs, so the database
+ * is never touched — no listing row can end up deleted while its photos still exist in the
+ * DB pointing at (now storage-inconsistent) keys, and no photo can be deleted from storage
+ * while its listingPhotos row (and the listing itself) survives. */
+export async function deleteListingAction(
+  _prev: DeleteListingState,
+  formData: FormData,
+): Promise<DeleteListingState> {
+  const user = await getSessionUser();
+  const listingId = String(formData.get("listingId"));
+  if (!user) redirect("/sign-in");
+
+  const listing = await loadOwnedListing(listingId, user.id);
+  if (!listing) return { error: "Listing not found." };
+
+  const photos = await db.select().from(listingPhotos).where(eq(listingPhotos.listingId, listingId));
+  const relatedInquiries = await db
+    .select({ id: inquiries.id })
+    .from(inquiries)
+    .where(eq(inquiries.listingId, listingId));
+  const inquiryIds = relatedInquiries.map((i) => i.id);
+
+  try {
+    for (const photo of photos) {
+      await deleteListingPhoto(photo.storageKey);
+    }
+  } catch {
+    return { error: "Could not delete this listing's photos from storage. Please try again." };
+  }
+
+  await db.batch([
+    // Children of inquiries — must go before inquiries themselves.
+    ...(inquiryIds.length > 0
+      ? [db.delete(messages).where(inArray(messages.inquiryId, inquiryIds))]
+      : []),
+    db.delete(offers).where(eq(offers.listingId, listingId)),
+    db.delete(visits).where(eq(visits.listingId, listingId)),
+    db.delete(inquiries).where(eq(inquiries.listingId, listingId)),
+    // Direct children of the listing.
+    db.delete(favorites).where(eq(favorites.listingId, listingId)),
+    db.delete(recentlyViewed).where(eq(recentlyViewed.listingId, listingId)),
+    db.delete(listingBoosts).where(eq(listingBoosts.listingId, listingId)),
+    db.delete(listingPhotos).where(eq(listingPhotos.listingId, listingId)),
+    // Reviews are about the transaction, not owned by the listing — detach rather than
+    // delete, so a seller can't erase a buyer's review by deleting the listing it's on.
+    db.update(reviews).set({ listingId: null }).where(eq(reviews.listingId, listingId)),
+    db.delete(reports).where(eq(reports.listingId, listingId)),
+    // The listing row itself — must be last, after every FK referencing it is gone.
+    db.delete(listings).where(eq(listings.id, listingId)),
+    db.insert(auditLog).values({
+      actorId: user.id,
+      objectType: "listing",
+      objectId: listingId,
+      action: "deleted",
+      priorState: listing.status,
+      newState: "deleted",
+    }),
+  ] as unknown as Parameters<typeof db.batch>[0]);
+
+  revalidatePath("/dashboard/listings");
+  revalidatePath("/cars");
+  redirect("/dashboard/listings?deleted=1");
 }
 
 // ---------- Protected inquiry (INQ-01..03) ----------

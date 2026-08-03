@@ -11,9 +11,14 @@ import { formatDate, formatPkr } from "@/lib/format";
 
 export const metadata: Metadata = { title: "My listings" };
 
-export default async function MyListingsPage() {
+export default async function MyListingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ deleted?: string }>;
+}) {
   const user = await getSessionUser();
   if (!user) redirect("/sign-in?next=/dashboard/listings");
+  const { deleted } = await searchParams;
 
   const myListings = await db
     .select()
@@ -48,6 +53,12 @@ export default async function MyListingsPage() {
         <h1 className="font-display text-2xl font-medium leading-tight">My listings</h1>
         {!blockingListing && <ButtonLink href="/sell">Sell your car</ButtonLink>}
       </div>
+
+      {deleted === "1" && (
+        <p role="status" className="mb-4 rounded-input bg-brand-soft px-3 py-2 text-sm text-brand-soft-ink">
+          Listing permanently deleted.
+        </p>
+      )}
 
       {myListings.length === 0 ? (
         <Card className="p-6 text-sm text-muted">
