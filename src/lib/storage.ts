@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { MAX_PHOTOS, MIN_PHOTOS } from "@/lib/constants";
 
 export { MIN_PHOTOS, MAX_PHOTOS };
@@ -119,19 +120,82 @@ export async function uploadListingPhoto(file: File, listingId: string): Promise
   return uploadPublicImage(file, `listings/${listingId}/${randomUUID()}.${ext}`);
 }
 
+/** True when `url` was actually produced by the currently-active storage backend (local
+ * fallback vs. the configured S3-compatible bucket) — i.e. whether the URL and the
+ * derived object key genuinely correspond to something this backend can act on. A
+ * mismatch is real and NOT hypothetical: this codebase has stored plain bundled-asset
+ * paths (seed.ts's `/cars/*.jpg`) and local-fallback `/uploads/...` URLs in
+ * `listingPhotos.storageKey` even after real S3 credentials were later configured — those
+ * rows' URLs no longer match `PUBLIC_URL_BASE` at all. */
+function storageUrlMatchesActiveBackend(url: string): boolean {
+  if (useLocalFallback) return url.startsWith("/uploads/");
+  return !!PUBLIC_URL_BASE && url.startsWith(`${PUBLIC_URL_BASE}/`);
+}
+
 /** Deletes a previously uploaded listing photo given its stored URL (from
- * uploadListingPhoto) — used when a seller removes a photo while editing a listing.
- * Best-effort: callers should not fail the surrounding action if this rejects, since the
- * listingPhotos row is the source of truth for what's actually displayed. */
+ * uploadListingPhoto). Used both when a seller removes a single photo while editing a
+ * listing, and by deleteListingRecords when a whole listing is deleted — the latter logs
+ * every step itself, but this function's own structured logging is what makes "log the
+ * exact object key / exact storage error / whether the key exists / whether the URL and
+ * key match" possible without duplicating that logic at every call site. */
 export async function deleteListingPhoto(url: string): Promise<void> {
-  if (useLocalFallback) {
-    if (!url.startsWith("/uploads/")) return;
-    await unlink(path.join(process.cwd(), "public", url));
+  const backend = useLocalFallback ? "local-disk" : "s3";
+  const matches = storageUrlMatchesActiveBackend(url);
+  console.log(`[deleteListingPhoto] start url=${url} backend=${backend} urlMatchesActiveBackend=${matches}`);
+
+  if (!matches) {
+    // Not an error: this URL was never written by the currently-active backend (a
+    // legacy/local-fallback/bundled-asset reference), so there is nothing for this
+    // backend to delete. Logged as a warning rather than silently no-op'd, and does NOT
+    // throw — deleteListingRecords must still be able to proceed with the rest of the
+    // deletion instead of getting stuck forever on a stale reference it can never resolve.
+    console.warn(`[deleteListingPhoto] SKIP — url does not match active storage backend (${backend}); nothing to delete. url=${url}`);
     return;
   }
-  if (!PUBLIC_URL_BASE || !url.startsWith(`${PUBLIC_URL_BASE}/`)) return;
-  const key = url.slice(PUBLIC_URL_BASE.length + 1);
-  await client!.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+
+  if (useLocalFallback) {
+    const filePath = path.join(process.cwd(), "public", url);
+    try {
+      await unlink(filePath);
+      console.log(`[deleteListingPhoto] done (local-disk) url=${url} path=${filePath}`);
+    } catch (e) {
+      const existed = existsSync(filePath);
+      console.error(
+        `[deleteListingPhoto] FAILED (local-disk) url=${url} path=${filePath} existedBeforeAttempt=${existed} error=${describeError(e)}`,
+      );
+      throw e;
+    }
+    return;
+  }
+
+  const key = url.slice(PUBLIC_URL_BASE!.length + 1);
+  console.log(`[deleteListingPhoto] derived key="${key}" bucket="${BUCKET}" from url="${url}" publicUrlBase="${PUBLIC_URL_BASE}"`);
+  try {
+    await client!.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+    console.log(`[deleteListingPhoto] done (s3) key="${key}"`);
+  } catch (e) {
+    let existed: boolean | "unknown" = "unknown";
+    try {
+      await client!.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
+      existed = true;
+    } catch (headErr) {
+      existed = describeError(headErr).toLowerCase().includes("not found") || describeError(headErr).includes("404") ? false : "unknown";
+    }
+    console.error(
+      `[deleteListingPhoto] FAILED (s3) key="${key}" bucket="${BUCKET}" existedBeforeAttempt=${existed} urlKeyMatch=${matches} error=${describeError(e)}`,
+    );
+    throw e;
+  }
+}
+
+function describeError(e: unknown): string {
+  if (e instanceof Error) {
+    const withCode = e as Error & { name?: string; Code?: string; $metadata?: unknown };
+    return `${withCode.name ?? "Error"}: ${withCode.message}${withCode.Code ? ` (Code=${withCode.Code})` : ""}${
+      withCode.$metadata ? ` metadata=${JSON.stringify(withCode.$metadata)}` : ""
+    }\n${e.stack ?? ""}`;
+  }
+  return String(e);
 }
 
 /** Uploads a dealer logo/cover image and returns its public URL. Mirrors

@@ -102,9 +102,21 @@ export async function markSoldAsStaff(staffId: string, listingId: string): Promi
 
 /** A real hard DELETE is available to staff (unlike suspend/restore, this isn't
  * reversible) — reuses the exact same multi-table batch delete the seller-facing
- * deleteListingAction uses, just without the ownership check or redirect. */
+ * deleteListingAction uses, just without the ownership check or redirect. Staff
+ * validation itself already happened one layer up, in admin-listings.ts's
+ * deleteListingAction, via requireStaff() — the "use server" wrapper is the only place
+ * that check is allowed to live (see the file-level comment at the top of
+ * listing-mutations.ts). */
 export async function deleteListingAsStaff(staffId: string, listingId: string): Promise<ListingActionResult> {
-  const listing = await loadListing(listingId);
+  console.log(`[deleteListingAsStaff:${listingId}] loading listing: before — staffId=${staffId}`);
+  let listing;
+  try {
+    listing = await loadListing(listingId);
+  } catch (e) {
+    console.error(`[deleteListingAsStaff:${listingId}] FAILED loading listing:`, e);
+    return { ok: false, error: "Could not load this listing. Please try again." };
+  }
+  console.log(`[deleteListingAsStaff:${listingId}] loading listing: after — found=${!!listing} status=${listing?.status ?? "n/a"}`);
   if (!listing) return { ok: false, error: "Listing not found." };
 
   const result = await deleteListingRecords(listingId, listing.status, staffId);

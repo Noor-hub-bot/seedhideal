@@ -187,12 +187,22 @@ export async function getListingDetailAction(listingId: string): Promise<Listing
   };
 }
 
+/** Wrapped in try/catch — the underlying mutation (e.g. deleteListingAsStaff) has
+ * already committed by the time this runs, so a cache-revalidation failure here must
+ * never be allowed to surface as a crashed request when the actual admin action
+ * genuinely succeeded. Previously unguarded: any revalidatePath() failure here propagated
+ * uncaught straight through the "use server" action to Next's generic production error
+ * page, even though e.g. the listing was already deleted from the database. */
 function revalidateListingPages(listingId?: string) {
-  revalidatePath("/admin");
-  revalidatePath("/admin/listings");
-  revalidatePath("/admin/moderation");
-  revalidatePath("/cars");
-  if (listingId) revalidatePath(`/cars/${listingId}`);
+  try {
+    revalidatePath("/admin");
+    revalidatePath("/admin/listings");
+    revalidatePath("/admin/moderation");
+    revalidatePath("/cars");
+    if (listingId) revalidatePath(`/cars/${listingId}`);
+  } catch (e) {
+    console.error(`[revalidateListingPages] failed (non-fatal — the underlying action already committed): listingId=${listingId ?? "n/a"}`, e);
+  }
 }
 
 // ---------- Single-listing actions (used by the details drawer / row menu) ----------
@@ -247,9 +257,17 @@ export async function markListingSoldAction(listingId: string): Promise<ListingA
 }
 
 export async function deleteListingAction(listingId: string): Promise<ListingActionResult> {
+  console.log(`[deleteListingAction(admin):${listingId}] staff validation: before`);
   const staff = await requireStaff();
+  console.log(`[deleteListingAction(admin):${listingId}] staff validation: after — staffId=${staff.id} role=${staff.role}`);
+
   const result = await deleteListingAsStaff(staff.id, listingId);
-  if (result.ok) revalidateListingPages(listingId);
+  console.log(`[deleteListingAction(admin):${listingId}] result: ${JSON.stringify(result)}`);
+  if (result.ok) {
+    console.log(`[deleteListingAction(admin):${listingId}] revalidatePath(): before`);
+    revalidateListingPages(listingId);
+    console.log(`[deleteListingAction(admin):${listingId}] revalidatePath(): after`);
+  }
   return result;
 }
 

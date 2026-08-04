@@ -602,58 +602,164 @@ export type DeleteListingState = { error?: string };
  * while its listingPhotos row (and the listing itself) survives. */
 export type DeleteRecordsOutcome = { ok: true } | { ok: false; error: string };
 
+/** Unwraps a Drizzle/Neon error chain (DrizzleQueryError -> NeonDbError -> the real
+ * driver-level cause) into every field useful for pinpointing "the exact SQL statement
+ * causing the failure" — the failing query text and params (present on both
+ * DrizzleQueryError and, for a batch, on the specific statement Neon's HTTP transaction
+ * API reports back), plus whatever real Postgres error metadata came back (constraint/
+ * table/column/detail/code). Logged in full rather than left for Next.js's production
+ * error page to reduce to "Something went wrong". */
+function describeDbError(e: unknown): string {
+  if (!(e instanceof Error)) return String(e);
+  const parts: string[] = [`${e.name}: ${e.message}`];
+  const anyErr = e as Error & {
+    query?: string;
+    params?: unknown;
+    cause?: unknown;
+  };
+  if (anyErr.query) parts.push(`query="${anyErr.query}"`);
+  if (anyErr.params !== undefined) parts.push(`params=${JSON.stringify(anyErr.params)}`);
+
+  let cause: unknown = anyErr.cause;
+  let depth = 0;
+  while (cause instanceof Error && depth < 5) {
+    const c = cause as Error & {
+      severity?: string;
+      code?: string;
+      detail?: string;
+      constraint?: string;
+      table?: string;
+      column?: string;
+      sourceError?: unknown;
+      cause?: unknown;
+    };
+    parts.push(
+      `cause[${depth}]=${c.name}: ${c.message}` +
+        (c.code ? ` code=${c.code}` : "") +
+        (c.detail ? ` detail="${c.detail}"` : "") +
+        (c.constraint ? ` constraint=${c.constraint}` : "") +
+        (c.table ? ` table=${c.table}` : "") +
+        (c.column ? ` column=${c.column}` : ""),
+    );
+    cause = c.sourceError ?? c.cause;
+    depth += 1;
+  }
+  parts.push(`stack=${e.stack ?? "(none)"}`);
+  return parts.join(" | ");
+}
+
 /** The actual multi-table batch delete, extracted so both the seller-facing action
  * below and the staff-facing one in admin-listings.ts share exactly one copy of it —
  * ownership/permission checks and the redirect-vs-return-result behavior stay with each
  * caller, since those differ (a seller redirects on success; an admin bulk action needs
- * a plain result to aggregate across many listings). */
+ * a plain result to aggregate across many listings).
+ *
+ * Every step is logged and every DB call that can throw is caught here — previously only
+ * the storage-deletion loop was, so any transient failure in the initial reads, the
+ * batch, or revalidatePath propagated uncaught straight to Next.js's generic production
+ * error page ("Something went wrong") instead of a clean, logged, user-facing error. */
 export async function deleteListingRecords(listingId: string, priorStatus: string, actorId: string): Promise<DeleteRecordsOutcome> {
-  const photos = await db.select().from(listingPhotos).where(eq(listingPhotos.listingId, listingId));
-  const relatedInquiries = await db
-    .select({ id: inquiries.id })
-    .from(inquiries)
-    .where(eq(inquiries.listingId, listingId));
-  const inquiryIds = relatedInquiries.map((i) => i.id);
+  const log = (msg: string) => console.log(`[deleteListingRecords:${listingId}] ${msg}`);
 
+  log(`start priorStatus=${priorStatus} actorId=${actorId}`);
+
+  let photos: (typeof listingPhotos.$inferSelect)[];
+  let inquiryIds: string[];
+  try {
+    log("loading photos: before");
+    photos = await db.select().from(listingPhotos).where(eq(listingPhotos.listingId, listingId));
+    log(`loading photos: after — count=${photos.length} keys=${JSON.stringify(photos.map((p) => p.storageKey))}`);
+
+    log("loading related inquiries: before");
+    const relatedInquiries = await db.select({ id: inquiries.id }).from(inquiries).where(eq(inquiries.listingId, listingId));
+    inquiryIds = relatedInquiries.map((i) => i.id);
+    log(`loading related inquiries: after — count=${inquiryIds.length}`);
+  } catch (e) {
+    console.error(`[deleteListingRecords:${listingId}] FAILED loading listing data: ${describeDbError(e)}`);
+    return { ok: false, error: "Could not load this listing's data. Please try again." };
+  }
+
+  log("deleting storage objects: before");
   try {
     for (const photo of photos) {
       await deleteListingPhoto(photo.storageKey);
     }
-  } catch {
+    log("deleting storage objects: after — all succeeded (or were skipped as not owned by the active backend)");
+  } catch (e) {
+    console.error(`[deleteListingRecords:${listingId}] FAILED deleting storage objects: ${describeDbError(e)}`);
     return { ok: false, error: "Could not delete this listing's photos from storage. Please try again." };
   }
 
-  await db.batch([
-    // Children of inquiries — must go before inquiries themselves.
-    ...(inquiryIds.length > 0
-      ? [db.delete(messages).where(inArray(messages.inquiryId, inquiryIds))]
-      : []),
-    db.delete(offers).where(eq(offers.listingId, listingId)),
-    db.delete(visits).where(eq(visits.listingId, listingId)),
-    db.delete(inquiries).where(eq(inquiries.listingId, listingId)),
-    // Direct children of the listing.
-    db.delete(favorites).where(eq(favorites.listingId, listingId)),
-    db.delete(recentlyViewed).where(eq(recentlyViewed.listingId, listingId)),
-    db.delete(listingBoosts).where(eq(listingBoosts.listingId, listingId)),
-    db.delete(listingPhotos).where(eq(listingPhotos.listingId, listingId)),
-    // Reviews are about the transaction, not owned by the listing — detach rather than
-    // delete, so a seller can't erase a buyer's review by deleting the listing it's on.
-    db.update(reviews).set({ listingId: null }).where(eq(reviews.listingId, listingId)),
-    db.delete(reports).where(eq(reports.listingId, listingId)),
-    // The listing row itself — must be last, after every FK referencing it is gone.
-    db.delete(listings).where(eq(listings.id, listingId)),
-    db.insert(auditLog).values({
-      actorId,
-      objectType: "listing",
-      objectId: listingId,
-      action: "deleted",
-      priorState: priorStatus,
-      newState: "deleted",
-    }),
-  ] as unknown as Parameters<typeof db.batch>[0]);
+  // Labeled 1:1 with the batch array below, purely for logging — db.batch() takes the
+  // query builders themselves, this is never sent to the database.
+  const statementLabels = [
+    ...(inquiryIds.length > 0 ? ["delete messages (by inquiryIds)"] : []),
+    "delete offers",
+    "delete visits",
+    "delete inquiries",
+    "delete favorites",
+    "delete recentlyViewed",
+    "delete listingBoosts",
+    "delete listingPhotos",
+    "update reviews (detach listingId)",
+    "delete reports",
+    "delete listings (the row itself)",
+    "insert auditLog",
+  ];
 
-  revalidatePath("/dashboard/listings");
-  revalidatePath("/cars");
+  log(`db.batch(): before — ${statementLabels.length} statements: ${JSON.stringify(statementLabels)}`);
+  try {
+    await db.batch([
+      // Children of inquiries — must go before inquiries themselves.
+      ...(inquiryIds.length > 0
+        ? [db.delete(messages).where(inArray(messages.inquiryId, inquiryIds))]
+        : []),
+      db.delete(offers).where(eq(offers.listingId, listingId)),
+      db.delete(visits).where(eq(visits.listingId, listingId)),
+      db.delete(inquiries).where(eq(inquiries.listingId, listingId)),
+      // Direct children of the listing.
+      db.delete(favorites).where(eq(favorites.listingId, listingId)),
+      db.delete(recentlyViewed).where(eq(recentlyViewed.listingId, listingId)),
+      db.delete(listingBoosts).where(eq(listingBoosts.listingId, listingId)),
+      db.delete(listingPhotos).where(eq(listingPhotos.listingId, listingId)),
+      // Reviews are about the transaction, not owned by the listing — detach rather than
+      // delete, so a seller can't erase a buyer's review by deleting the listing it's on.
+      db.update(reviews).set({ listingId: null }).where(eq(reviews.listingId, listingId)),
+      db.delete(reports).where(eq(reports.listingId, listingId)),
+      // The listing row itself — must be last, after every FK referencing it is gone.
+      db.delete(listings).where(eq(listings.id, listingId)),
+      db.insert(auditLog).values({
+        actorId,
+        objectType: "listing",
+        objectId: listingId,
+        action: "deleted",
+        priorState: priorStatus,
+        newState: "deleted",
+      }),
+    ] as unknown as Parameters<typeof db.batch>[0]);
+    log("db.batch(): after — committed");
+  } catch (e) {
+    console.error(
+      `[deleteListingRecords:${listingId}] FAILED db.batch() — attempted statements: ${JSON.stringify(statementLabels)} | ${describeDbError(e)}`,
+    );
+    return { ok: false, error: "Could not delete this listing. Please try again, or contact support if this keeps happening." };
+  }
+
+  log("audit log creation: included in db.batch() above (insert auditLog), committed atomically with the delete");
+
+  // The batch already committed — the listing is genuinely gone at this point. A cache
+  // revalidation failure must never be reported back as "the delete failed" (it isn't),
+  // so this is caught and logged, not propagated.
+  log("revalidatePath(): before");
+  try {
+    revalidatePath("/dashboard/listings");
+    revalidatePath("/cars");
+    log("revalidatePath(): after — succeeded");
+  } catch (e) {
+    console.error(`[deleteListingRecords:${listingId}] revalidatePath() failed (non-fatal — delete already committed): ${describeDbError(e)}`);
+  }
+
+  log("done — ok:true");
   return { ok: true };
 }
 
@@ -665,12 +771,15 @@ export async function deleteListingAction(
   const listingId = String(formData.get("listingId"));
   if (!user) redirect("/sign-in");
 
+  console.log(`[deleteListingAction:${listingId}] ownership validation: before — userId=${user.id}`);
   const listing = await loadOwnedListing(listingId, user.id);
+  console.log(`[deleteListingAction:${listingId}] ownership validation: after — owned=${!!listing}`);
   if (!listing) return { error: "Listing not found." };
 
   const result = await deleteListingRecords(listingId, listing.status, user.id);
   if (!result.ok) return { error: result.error };
 
+  console.log(`[deleteListingAction:${listingId}] redirect(): before`);
   redirect("/dashboard/listings?deleted=1");
 }
 
