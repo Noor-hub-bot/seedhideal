@@ -9,6 +9,7 @@ import { formatDate, formatKm, formatPkr, formatRelativeTime } from "@/lib/forma
 import { getListingDetailAction, type ListingDetail } from "@/lib/actions/admin-listings";
 import { RowsSkeleton, SectionSkeleton } from "@/components/admin/skeletons";
 import { ListingActions } from "./listing-actions";
+import { ListingContentEditor } from "./listing-content-editor";
 
 const VERIFICATION_BADGE = {
   verified: { tone: "verified" as const, label: "Verified" },
@@ -119,12 +120,15 @@ function DrawerBody({ detail }: { detail: ListingDetail }) {
           <Stat label="Exterior" value={detail.exteriorColor ?? "—"} />
           <Stat label="Interior" value={detail.interiorColor ?? "—"} />
         </dl>
-        {detail.description && <p className="mt-3 whitespace-pre-wrap text-[13px] leading-relaxed text-body-soft">{detail.description}</p>}
         {detail.rejectionReason && (
           <p className="mt-3 rounded-input border border-alert-soft bg-alert-soft p-3 text-[13px] text-alert-ink">
             Correction requested: {detail.rejectionReason}
           </p>
         )}
+      </Section>
+
+      <Section title="Car overview & features">
+        <ListingContentEditor listingId={detail.id} description={detail.description} features={detail.features} />
       </Section>
 
       {detail.disclosures && (

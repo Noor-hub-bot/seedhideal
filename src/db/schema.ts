@@ -272,6 +272,11 @@ export const listings = pgTable(
     interiorColor: varchar("interior_color", { length: 32 }),
     assembly: assemblyType("assembly"),
     description: text("description"),
+    // Curated multi-select (src/lib/constants.ts's FEATURES) — a plain jsonb string array
+    // rather than a join table, same shape/reasoning as verificationCases.proposedWindows:
+    // there's no independent entity here to look up or reuse across listings, just a set
+    // of tags that belongs entirely to this one listing.
+    features: jsonb("features").$type<string[]>(),
     // Structured condition disclosures (LST-03): paintedPanels, accidentHistory,
     // mechanicalIssues, documents — controlled options, "unknown" only where policy permits
     disclosures: jsonb("disclosures").$type<{

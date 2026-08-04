@@ -9,6 +9,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { auditLog, db, featuredPlans, listingBoosts, listings } from "@/db";
 import { notify } from "@/lib/notify";
 import { deleteListingRecords, transitionListing } from "@/lib/actions/marketplace";
+import { FEATURES } from "@/lib/constants";
 
 export type ListingActionResult = { ok: true; message: string } | { ok: false; error: string };
 
@@ -181,4 +182,33 @@ export async function unfeatureListingAsStaff(staffId: string, listingId: string
   await db.update(listings).set({ featured: false, featuredPriority: 0, updatedAt: now }).where(eq(listings.id, listingId));
 
   return { ok: true, message: "Listing unfeatured." };
+}
+
+/** Staff-only edit of a listing's Car Overview (description) and Features & Highlights
+ * — the two fields the public Car Details page's new sections read from. Deliberately
+ * narrower than the seller's own editListingAction (marketplace.ts): this touches only
+ * these two fields and does NOT reset the listing to "submitted" for re-review — an
+ * admin editing content is itself the review, unlike a seller's edit which needs a fresh
+ * moderation pass. Same curated FEATURES filter as the seller-facing path, so a
+ * tampered request can't store an arbitrary string here either. */
+export async function updateListingContentAsStaff(
+  staffId: string,
+  listingId: string,
+  values: { description: string; features: string[] },
+): Promise<ListingActionResult> {
+  const listing = await loadListing(listingId);
+  if (!listing) return { ok: false, error: "Listing not found." };
+
+  const description = values.description.trim();
+  if (description.length > 4000) return { ok: false, error: "Description is too long (max 4000 characters)." };
+  const featuresSet = new Set(values.features);
+  const features = FEATURES.filter((f) => featuresSet.has(f));
+
+  await db
+    .update(listings)
+    .set({ description: description || null, features, updatedAt: new Date() })
+    .where(eq(listings.id, listingId));
+  await db.insert(auditLog).values({ actorId: staffId, objectType: "listing", objectId: listingId, action: "content_edited" });
+
+  return { ok: true, message: "Listing content updated." };
 }

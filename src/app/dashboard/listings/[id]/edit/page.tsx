@@ -76,6 +76,7 @@ export default async function EditListingPage({
             exteriorColor: listing.exteriorColor,
             interiorColor: listing.interiorColor,
             description: listing.description,
+            features: listing.features,
             disclosures: listing.disclosures,
           }}
         />

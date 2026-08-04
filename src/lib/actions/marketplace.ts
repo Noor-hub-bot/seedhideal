@@ -21,6 +21,7 @@ import {
 } from "@/db";
 import { getSessionUser, isStaff, requireStaff } from "@/lib/auth";
 import { notify } from "@/lib/notify";
+import { FEATURES } from "@/lib/constants";
 import {
   ALLOWED_PHOTO_TYPES,
   MAX_PHOTO_BYTES,
@@ -70,6 +71,17 @@ const listingSchema = z.object({
   mechanicalIssues: z.string().max(500),
   documents: z.string().max(200),
 });
+
+// A controlled multi-select (checkboxes, name="features" repeated) — read via
+// formData.getAll(), the same way `photos` is, rather than through listingSchema/
+// Object.fromEntries(formData) above, which only keeps the LAST value for a repeated
+// form key and would silently drop every feature but one. Filtering against the curated
+// FEATURES list (rather than trusting formData directly) also dedupes, fixes ordering,
+// and drops anything a tampered request tried to sneak in.
+function readFeatures(formData: FormData): string[] {
+  const raw = new Set(formData.getAll("features").map(String));
+  return FEATURES.filter((f) => raw.has(f));
+}
 
 const BLOCKING_STATES = new Set(["submitted", "under_review", "correction", "paused"]);
 
@@ -160,6 +172,7 @@ export async function submitListingAction(
       interiorColor: v.interiorColor || null,
       assembly: v.assembly || null,
       description: v.description || null,
+      features: readFeatures(formData),
       disclosures: {
         paintedPanels: v.paintedPanels,
         accidentHistory: v.accidentHistory,
@@ -269,6 +282,7 @@ export async function editListingAction(
       interiorColor: v.interiorColor || null,
       assembly: v.assembly || null,
       description: v.description || null,
+      features: readFeatures(formData),
       disclosures: {
         paintedPanels: v.paintedPanels,
         accidentHistory: v.accidentHistory,

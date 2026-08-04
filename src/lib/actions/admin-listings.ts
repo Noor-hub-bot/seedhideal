@@ -27,6 +27,7 @@ import {
   resumeListingAsStaff,
   suspendListingAsStaff,
   unfeatureListingAsStaff,
+  updateListingContentAsStaff,
   type ListingActionResult,
 } from "@/lib/admin/listing-mutations";
 
@@ -52,6 +53,7 @@ export type ListingDetail = {
   interiorColor: string | null;
   assembly: string | null;
   description: string | null;
+  features: string[] | null;
   disclosures: { paintedPanels?: string; accidentHistory?: string; mechanicalIssues?: string; documents?: string } | null;
   rejectionReason: string | null;
   viewCount: number;
@@ -145,6 +147,7 @@ export async function getListingDetailAction(listingId: string): Promise<Listing
     interiorColor: listing.interiorColor,
     assembly: listing.assembly,
     description: listing.description,
+    features: listing.features,
     disclosures: listing.disclosures,
     rejectionReason: listing.rejectionReason,
     viewCount: listing.viewCount,
@@ -268,6 +271,21 @@ export async function deleteListingAction(listingId: string): Promise<ListingAct
     revalidateListingPages(listingId);
     console.log(`[deleteListingAction(admin):${listingId}] revalidatePath(): after`);
   }
+  return result;
+}
+
+/** Staff-only edit of a listing's Car Overview (description) + Features & Highlights —
+ * the admin-side counterpart to the seller's own edit form, scoped to just these two
+ * fields (see updateListingContentAsStaff's own comment for why it's narrower than a
+ * full listing editor). Revalidates the public listing page too, since this is the one
+ * admin listing action that changes what a live "active" listing's own page shows. */
+export async function updateListingContentAction(
+  listingId: string,
+  values: { description: string; features: string[] },
+): Promise<ListingActionResult> {
+  const staff = await requireStaff();
+  const result = await updateListingContentAsStaff(staff.id, listingId, values);
+  if (result.ok) revalidateListingPages(listingId);
   return result;
 }
 

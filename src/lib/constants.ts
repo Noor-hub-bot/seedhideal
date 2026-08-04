@@ -100,6 +100,33 @@ export const SORT_OPTIONS = [
 export const MIN_PHOTOS = 3;
 export const MAX_PHOTOS = 8;
 
+// Curated multi-select for a listing's "Features & Highlights" (listings.features) — a
+// controlled checkbox list, not free text, so the public Car Details page can render a
+// consistent icon+label for every value rather than trying to display arbitrary strings.
+export const FEATURES = [
+  "Air Conditioning",
+  "Power Steering",
+  "Power Windows",
+  "Power Locks",
+  "ABS Brakes",
+  "Airbags",
+  "Alloy Rims",
+  "Sunroof",
+  "Navigation System",
+  "Backup Camera",
+  "Parking Sensors",
+  "Cruise Control",
+  "Keyless Entry",
+  "Immobilizer Key",
+  "Steering Switches",
+  "AM/FM Radio",
+  "CD/DVD Player",
+  "Leather Seats",
+  "Heated Seats",
+  "Fog Lights",
+];
+export const MAX_FEATURES = FEATURES.length;
+
 // Bump this when Terms of Service content changes — new signups accept the current
 // version immediately (see signUpAction).
 export const TERMS_VERSION = "2026-07-23";

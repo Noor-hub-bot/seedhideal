@@ -13,6 +13,7 @@ import {
   BODY_TYPES,
   CITIES,
   COLORS,
+  FEATURES,
   MAKES,
   MAX_PHOTOS,
   MIN_PHOTOS,
@@ -38,6 +39,7 @@ export type ListingDefaults = {
   exteriorColor: string | null;
   interiorColor: string | null;
   description: string | null;
+  features: string[] | null;
   disclosures: {
     paintedPanels?: string;
     accidentHistory?: string;
@@ -234,6 +236,25 @@ export function SellForm({
                 ))}
               </Select>
             </div>
+          </div>
+        </fieldset>
+
+        <fieldset className="space-y-3">
+          <legend className="font-semibold">Features &amp; highlights (optional)</legend>
+          <p className="text-xs text-muted">Select everything this car actually has — shown to buyers on the listing page.</p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
+            {FEATURES.map((f) => (
+              <label key={f} className="flex items-center gap-2 text-[13px]">
+                <input
+                  type="checkbox"
+                  name="features"
+                  value={f}
+                  defaultChecked={d?.features?.includes(f) ?? false}
+                  className="h-4 w-4 rounded border-border-input accent-[var(--color-brand)]"
+                />
+                {f}
+              </label>
+            ))}
           </div>
         </fieldset>
 

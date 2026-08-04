@@ -12,6 +12,7 @@ import {
 } from "@/db";
 import { getSessionUser } from "@/lib/auth";
 import { Badge, Card, Heading, SafetyNotice } from "@/components/ui";
+import { CheckIcon } from "@/components/home/icons";
 import { formatDate, formatKm, formatPkr } from "@/lib/format";
 import { ReportForm } from "@/components/report-form";
 import { FavoriteButton } from "@/components/favorite-button";
@@ -232,15 +233,6 @@ export default async function ListingDetailPage({
         </Card>
       </div>
 
-      {listing.description && (
-        <Card className="mt-6 p-5">
-          <h2 className="mb-2 font-semibold">Seller&apos;s notes</h2>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed">
-            {listing.description}
-          </p>
-        </Card>
-      )}
-
       <div className="mt-7 space-y-4">
         {listing.status === "sold" ? (
           <Card className="p-5 text-center">
@@ -271,6 +263,46 @@ export default async function ListingDetailPage({
           </>
         )}
       </div>
+
+      <section className="mt-12">
+        <Heading as="h2" size="md" className="mb-4">
+          Car Overview
+        </Heading>
+        {listing.description ? (
+          <Card className="p-6">
+            <p className="whitespace-pre-wrap text-[15px] leading-[1.8] text-body-soft">{listing.description}</p>
+          </Card>
+        ) : (
+          <Card className="p-6 text-center text-sm text-muted">
+            The seller hasn&apos;t added an overview for this car yet.
+          </Card>
+        )}
+      </section>
+
+      <section className="mt-10">
+        <Heading as="h2" size="md" className="mb-4">
+          Features &amp; Highlights
+        </Heading>
+        {listing.features && listing.features.length > 0 ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {listing.features.map((f) => (
+              <div
+                key={f}
+                className="group flex items-center gap-2.5 rounded-card border border-border bg-surface p-3.5 transition-all hover:-translate-y-0.5 hover:border-brand hover:shadow-sm"
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-soft-ink transition-colors group-hover:bg-brand group-hover:text-white">
+                  <CheckIcon className="h-3.5 w-3.5" />
+                </span>
+                <span className="text-[13px] font-medium">{f}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Card className="p-6 text-center text-sm text-muted">
+            No specific features have been listed for this car yet.
+          </Card>
+        )}
+      </section>
 
       <SimilarCars current={listing} viewer={viewer} />
     </div>
