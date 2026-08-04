@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { desc, eq, inArray } from "drizzle-orm";
 import { db, featuredPlans, listingBoosts, listings } from "@/db";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, isStaff } from "@/lib/auth";
 import { getBlockingListing } from "@/lib/actions/marketplace";
 import { Badge, ButtonLink, Card } from "@/components/ui";
 import { BoostStatus, ListingActions } from "@/components/dashboard/listing-actions";
@@ -36,7 +36,9 @@ export default async function MyListingsPage({
           .where(inArray(listingBoosts.listingId, listingIds))
           .orderBy(desc(listingBoosts.createdAt))
       : Promise.resolve([]),
-    getBlockingListing(user.id),
+    // Staff bypass the one-active-listing restriction (see src/app/sell/page.tsx) — the
+    // "Sell your car" button below must stay visible for them too.
+    isStaff(user) ? Promise.resolve(null) : getBlockingListing(user.id),
   ]);
 
   const boostByListing = new Map<string, (typeof myBoosts)[number]>();

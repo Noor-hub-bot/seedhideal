@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, isStaff } from "@/lib/auth";
 import { getBlockingListing } from "@/lib/actions/marketplace";
 import { ButtonLink, Card } from "@/components/ui";
 import { SellForm } from "./sell-form";
@@ -11,7 +11,9 @@ export default async function SellPage() {
   const user = await getSessionUser();
   if (!user) redirect("/sign-in?next=/sell");
 
-  const blocking = await getBlockingListing(user.id);
+  // Staff (admin/reviewer/moderator/support) bypass the one-active-listing restriction
+  // entirely — they can always post another listing (e.g. for testing/demo purposes).
+  const blocking = isStaff(user) ? null : await getBlockingListing(user.id);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">

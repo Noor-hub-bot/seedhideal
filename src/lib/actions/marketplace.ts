@@ -19,7 +19,7 @@ import {
   reviews,
   visits,
 } from "@/db";
-import { getSessionUser, requireStaff } from "@/lib/auth";
+import { getSessionUser, isStaff, requireStaff } from "@/lib/auth";
 import { notify } from "@/lib/notify";
 import {
   ALLOWED_PHOTO_TYPES,
@@ -131,8 +131,9 @@ export async function submitListingAction(
     }
   }
 
-  // One free active listing per private seller (LST-01)
-  if (await getBlockingListing(user.id)) {
+  // One free active listing per private seller (LST-01) — staff are exempt, so they can
+  // always create test/demo listings without first clearing out an existing one.
+  if (!isStaff(user) && (await getBlockingListing(user.id))) {
     return { error: "You already have an active listing. Close or mark it sold before listing another car." };
   }
 
