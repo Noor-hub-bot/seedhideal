@@ -1,10 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
-import { auditLog, db, reports } from "@/db";
+import { db, reports } from "@/db";
 import { getSessionUser, requireStaff } from "@/lib/auth";
-import { notify } from "@/lib/notify";
+import { updateReportStatusAsStaff, type ReportStatus } from "@/lib/admin/report-mutations";
 
 const CATEGORIES = new Set([
   "fake_listing",
@@ -59,32 +58,10 @@ export async function updateReportStatusAction(formData: FormData): Promise<void
   const status = String(formData.get("status"));
   if (!REPORT_STATUSES.has(status)) return;
 
-  const [existing] = await db.select().from(reports).where(eq(reports.id, reportId));
-  if (!existing) return;
-
-  await db
-    .update(reports)
-    .set({ status: status as "triaged" | "investigating" | "actioned" | "closed" })
-    .where(eq(reports.id, reportId));
-
-  await db.insert(auditLog).values({
-    actorId: staff.id,
-    objectType: "report",
-    objectId: reportId,
-    action: "status_updated",
-    priorState: existing.status,
-    newState: status,
-  });
-
-  if (status === "actioned" || status === "closed") {
-    await notify({
-      userId: existing.reporterId,
-      type: "report_reviewed",
-      title: "Your report has been reviewed",
-      body: "Thanks for flagging this — our team has looked into it.",
-    });
-  }
+  const result = await updateReportStatusAsStaff(staff.id, reportId, status as ReportStatus);
+  if (!result.ok) return;
 
   revalidatePath("/admin");
   revalidatePath("/admin/moderation");
+  revalidatePath("/admin/reports");
 }
