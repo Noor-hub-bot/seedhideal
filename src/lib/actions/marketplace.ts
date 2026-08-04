@@ -489,7 +489,11 @@ export async function loadOwnedListing(listingId: string, sellerId: string) {
   return listing;
 }
 
-async function transitionListing(
+/** Exported so admin-listings.ts can reuse this same update+audit-log+revalidate core
+ * for staff-initiated transitions (suspend/restore/pause/resume/mark sold), rather than
+ * a second copy of it — the only difference is who's allowed to call it and which prior
+ * status is considered legal, both of which stay the caller's responsibility. */
+export async function transitionListing(
   listingId: string,
   actorId: string,
   priorState: string,
@@ -596,17 +600,14 @@ export type DeleteListingState = { error?: string };
  * is never touched — no listing row can end up deleted while its photos still exist in the
  * DB pointing at (now storage-inconsistent) keys, and no photo can be deleted from storage
  * while its listingPhotos row (and the listing itself) survives. */
-export async function deleteListingAction(
-  _prev: DeleteListingState,
-  formData: FormData,
-): Promise<DeleteListingState> {
-  const user = await getSessionUser();
-  const listingId = String(formData.get("listingId"));
-  if (!user) redirect("/sign-in");
+export type DeleteRecordsOutcome = { ok: true } | { ok: false; error: string };
 
-  const listing = await loadOwnedListing(listingId, user.id);
-  if (!listing) return { error: "Listing not found." };
-
+/** The actual multi-table batch delete, extracted so both the seller-facing action
+ * below and the staff-facing one in admin-listings.ts share exactly one copy of it —
+ * ownership/permission checks and the redirect-vs-return-result behavior stay with each
+ * caller, since those differ (a seller redirects on success; an admin bulk action needs
+ * a plain result to aggregate across many listings). */
+export async function deleteListingRecords(listingId: string, priorStatus: string, actorId: string): Promise<DeleteRecordsOutcome> {
   const photos = await db.select().from(listingPhotos).where(eq(listingPhotos.listingId, listingId));
   const relatedInquiries = await db
     .select({ id: inquiries.id })
@@ -619,7 +620,7 @@ export async function deleteListingAction(
       await deleteListingPhoto(photo.storageKey);
     }
   } catch {
-    return { error: "Could not delete this listing's photos from storage. Please try again." };
+    return { ok: false, error: "Could not delete this listing's photos from storage. Please try again." };
   }
 
   await db.batch([
@@ -642,17 +643,34 @@ export async function deleteListingAction(
     // The listing row itself — must be last, after every FK referencing it is gone.
     db.delete(listings).where(eq(listings.id, listingId)),
     db.insert(auditLog).values({
-      actorId: user.id,
+      actorId,
       objectType: "listing",
       objectId: listingId,
       action: "deleted",
-      priorState: listing.status,
+      priorState: priorStatus,
       newState: "deleted",
     }),
   ] as unknown as Parameters<typeof db.batch>[0]);
 
   revalidatePath("/dashboard/listings");
   revalidatePath("/cars");
+  return { ok: true };
+}
+
+export async function deleteListingAction(
+  _prev: DeleteListingState,
+  formData: FormData,
+): Promise<DeleteListingState> {
+  const user = await getSessionUser();
+  const listingId = String(formData.get("listingId"));
+  if (!user) redirect("/sign-in");
+
+  const listing = await loadOwnedListing(listingId, user.id);
+  if (!listing) return { error: "Listing not found." };
+
+  const result = await deleteListingRecords(listingId, listing.status, user.id);
+  if (!result.ok) return { error: result.error };
+
   redirect("/dashboard/listings?deleted=1");
 }
 

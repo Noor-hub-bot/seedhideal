@@ -137,6 +137,23 @@
   animation: dialog-overlay-fade-in 150ms ease-out;
 }
 
+/* Admin Sheet (src/components/ui/sheet.tsx) slide-in/out drawer, same data-state
+   attribute as the overlay above. */
+@keyframes sheet-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.sheet-content[data-state="open"] {
+  animation: sheet-slide-in 220ms ease-out;
+}
+.sheet-content[data-state="closed"] {
+  animation: sheet-slide-in 180ms ease-in reverse;
+}
+
 @keyframes alert-dialog-in {
   from {
     opacity: 0;
