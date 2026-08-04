@@ -6,19 +6,20 @@ import { HeaderLogo } from "@/components/logo";
 import { MobileNav } from "@/components/mobile-nav";
 import { NavLink } from "@/components/nav-link";
 import { SearchBar } from "@/components/search-bar";
+import { getSiteSettings } from "@/lib/site-settings";
 
 const navLink =
   "text-[15px] font-medium text-muted transition-colors hover:text-foreground";
 
 export async function Header() {
-  const user = await getSessionUser();
+  const [user, { general, media }] = await Promise.all([getSessionUser(), getSiteSettings()]);
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-4">
         <div className="flex items-center gap-10">
-          <Link href="/" aria-label="SeedhiDeal home">
-            <HeaderLogo />
+          <Link href="/" aria-label={`${general.siteName} home`}>
+            <HeaderLogo src={media.logo} />
           </Link>
           <nav className="hidden items-center gap-7 lg:flex">
             <NavLink href="/cars" className={navLink}>

@@ -152,6 +152,14 @@ export async function uploadAvatar(file: File, userId: string): Promise<string> 
   return uploadPublicImage(file, `avatars/${userId}/${randomUUID()}.${ext}`);
 }
 
+/** Uploads a site-wide CMS asset (logo, favicon, placeholders, hero background) and
+ * returns its public URL. Mirrors uploadListingPhoto/uploadDealerAsset/uploadAvatar
+ * exactly — same bucket, own key prefix. */
+export async function uploadSiteAsset(file: File, kind: string): Promise<string> {
+  const ext = EXT_BY_TYPE[file.type];
+  return uploadPublicImage(file, `site/${kind}-${randomUUID()}.${ext}`);
+}
+
 function privateLocalPath(key: string): string {
   return path.join(process.cwd(), "private-uploads", key);
 }

@@ -32,6 +32,7 @@ const cspHeader = `
   base-uri 'self';
   form-action 'self';
   frame-ancestors 'none';
+  frame-src 'self' https://www.google.com;
 `
   .replace(/\s{2,}/g, " ")
   .trim();

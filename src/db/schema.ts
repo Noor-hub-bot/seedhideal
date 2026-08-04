@@ -646,3 +646,88 @@ export const recentlyViewed = pgTable(
     primaryKey({ columns: [t.userId, t.listingId] }),
   ],
 );
+
+// Single-row table (id is always "default") backing the admin-editable Website
+// Settings/CMS — content that used to be hardcoded across layout.tsx, page.tsx,
+// footer.tsx, robots.ts, etc. One row rather than a generic key-value table: every
+// field here is edited together from one settings page and read together on nearly
+// every request, so a single row keeps that a single real query instead of N. Grouped
+// into one jsonb column per admin-settings tab (not one column per field) so adding a
+// field within a tab later never requires a schema migration.
+export const siteSettings = pgTable("site_settings", {
+  id: text("id").primaryKey().default("default"),
+  general: jsonb("general").$type<{
+    siteName: string;
+    description: string;
+    supportEmail: string;
+    supportPhone: string;
+    whatsappNumber: string;
+    address: string;
+    timezone: string;
+    currency: string;
+    language: string;
+  }>().notNull(),
+  homepage: jsonb("homepage").$type<{
+    heroTitle: string;
+    heroSubtitle: string;
+    heroBackgroundImage: string | null;
+    heroButtonText: string;
+    heroButtonLink: string;
+    heroButtonSecondaryText: string;
+    heroButtonSecondaryLink: string;
+    stats: { value: string; label: string }[];
+    sections: {
+      browseBy: boolean;
+      recentlyAdded: boolean;
+      featuredCars: boolean;
+      verifiedSellers: boolean;
+      socialProof: boolean;
+      statisticsBand: boolean;
+      trustComparison: boolean;
+      howItWorks: boolean;
+      whySeedhiDeal: boolean;
+      downloadApp: boolean;
+      newsletter: boolean;
+      faq: boolean;
+    };
+  }>().notNull(),
+  social: jsonb("social").$type<{
+    facebook: string;
+    instagram: string;
+    youtube: string;
+    tiktok: string;
+    linkedin: string;
+    twitter: string;
+    whatsapp: string;
+    googleMapsEmbed: string;
+  }>().notNull(),
+  footer: jsonb("footer").$type<{
+    text: string;
+    copyright: string;
+    privacyLink: string;
+    termsLink: string;
+    aboutLink: string;
+    contactLink: string;
+  }>().notNull(),
+  seo: jsonb("seo").$type<{
+    metaTitle: string;
+    metaDescription: string;
+    ogImage: string | null;
+    twitterImage: string | null;
+    robots: string;
+    canonicalUrl: string;
+  }>().notNull(),
+  media: jsonb("media").$type<{
+    logo: string | null;
+    darkLogo: string | null;
+    favicon: string | null;
+    vehiclePlaceholder: string | null;
+    userAvatarPlaceholder: string | null;
+  }>().notNull(),
+  maintenance: jsonb("maintenance").$type<{
+    enabled: boolean;
+    message: string;
+  }>().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by").references(() => users.id),
+});

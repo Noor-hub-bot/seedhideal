@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { asc, desc, eq } from "drizzle-orm";
 import { db, listingPhotos, listings } from "@/db";
+import { getSiteSettings } from "@/lib/site-settings";
 import { Badge, ButtonLink, Card, Heading } from "@/components/ui";
 import { PhotoCarousel } from "@/components/photo-carousel";
 import { formatKm, formatPkr } from "@/lib/format";
@@ -88,7 +89,9 @@ export default async function LandingPage() {
   // DB hiccup here should degrade to the existing "no featured listing yet"
   // state below, not take down the whole homepage the way every other
   // section's query safely can behind its own Suspense boundary.
-  const hero = await fetchHeroListing();
+  const [hero, settings] = await Promise.all([fetchHeroListing(), getSiteSettings()]);
+  const { homepage } = settings;
+  const sections = homepage.sections;
   const featured = hero?.listing;
   // Combined so the JSX below can narrow both together (TS can't infer that
   // `featuredPhotos` being non-empty implies `featured` is too, across two separate
@@ -105,46 +108,57 @@ export default async function LandingPage() {
       />
 
       {/* HERO — kept outside any Suspense boundary: this is the LCP element and
-          should paint as part of the static shell, not wait on a section query. */}
-      <section className="mx-auto grid max-w-6xl items-center gap-12 px-6 pb-10 pt-16 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:pt-24">
+          should paint as part of the static shell, not wait on a section query.
+          The background image layer only renders once an admin sets one (Website
+          Settings > Homepage) — with none set this section looks identical to before. */}
+      <section
+        className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 pb-10 pt-16 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:pt-24"
+        style={
+          homepage.heroBackgroundImage
+            ? {
+                backgroundImage: `linear-gradient(color-mix(in oklab, var(--color-background) 88%, transparent), var(--color-background)), url(${homepage.heroBackgroundImage})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }
+            : undefined
+        }
+      >
         <div>
           <Badge tone="verified" className="mb-7 px-3.5 py-[7px]">
             <CheckIcon className="h-3.5 w-3.5 shrink-0" /> Every listing verified — identity &amp; ownership
           </Badge>
           <Heading size="display" className="max-w-[600px]">
-            Sell with confidence. Buy with proof.
+            {homepage.heroTitle}
           </Heading>
           <p className="mt-5 max-w-[520px] text-[19px] leading-relaxed text-body-soft">
-            A trust-first marketplace for verified private-owner cars in
-            Pakistan. Real owners, real buyers, no dealers in disguise — and
-            never a surprise listing charge.
+            {homepage.heroSubtitle}
           </p>
           <div className="mt-9 flex flex-wrap gap-4">
-            <ButtonLink href="/sell" className="px-7 py-[15px] text-base">
-              List your car free
-            </ButtonLink>
-            <ButtonLink
-              href="/cars"
-              variant="secondary"
-              className="px-7 py-[15px] text-base"
-            >
-              Browse verified cars
-            </ButtonLink>
+            {homepage.heroButtonText && (
+              <ButtonLink href={homepage.heroButtonLink || "/sell"} className="px-7 py-[15px] text-base">
+                {homepage.heroButtonText}
+              </ButtonLink>
+            )}
+            {homepage.heroButtonSecondaryText && (
+              <ButtonLink
+                href={homepage.heroButtonSecondaryLink || "/cars"}
+                variant="secondary"
+                className="px-7 py-[15px] text-base"
+              >
+                {homepage.heroButtonSecondaryText}
+              </ButtonLink>
+            )}
           </div>
-          <div className="mt-11 flex gap-8">
-            {(
-              [
-                ["100%", "Owner identity verified"],
-                ["0", "Hidden listing charges"],
-                ["1", "Ticket per issue, always tracked"],
-              ] as const
-            ).map(([stat, label]) => (
-              <div key={label}>
-                <div className="font-display text-[26px] font-medium">{stat}</div>
-                <div className="text-[13px] text-muted">{label}</div>
-              </div>
-            ))}
-          </div>
+          {homepage.stats.length > 0 && (
+            <div className="mt-11 flex gap-8">
+              {homepage.stats.map((stat) => (
+                <div key={stat.label}>
+                  <div className="font-display text-[26px] font-medium">{stat.value}</div>
+                  <div className="text-[13px] text-muted">{stat.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Featured verified listing */}
@@ -208,61 +222,73 @@ export default async function LandingPage() {
         <SearchBar variant="expanded" />
       </section>
 
-      <BrowseByTabs
-        brand={
-          <Suspense fallback={<SkeletonGrid tiles={6} />}>
-            <BrandGrid />
-          </Suspense>
-        }
-        bodyType={
-          <Suspense fallback={<SkeletonGrid tiles={7} />}>
-            <BodyTypeGrid />
-          </Suspense>
-        }
-        budget={
-          <Suspense fallback={<SkeletonGrid tiles={5} />}>
-            <BudgetGrid />
-          </Suspense>
-        }
-      />
+      {sections.browseBy && (
+        <BrowseByTabs
+          brand={
+            <Suspense fallback={<SkeletonGrid tiles={6} />}>
+              <BrandGrid />
+            </Suspense>
+          }
+          bodyType={
+            <Suspense fallback={<SkeletonGrid tiles={7} />}>
+              <BodyTypeGrid />
+            </Suspense>
+          }
+          budget={
+            <Suspense fallback={<SkeletonGrid tiles={5} />}>
+              <BudgetGrid />
+            </Suspense>
+          }
+        />
+      )}
 
-      <Suspense fallback={<SkeletonSection><SkeletonRail /></SkeletonSection>}>
-        <RecentlyAdded />
-      </Suspense>
+      {sections.recentlyAdded && (
+        <Suspense fallback={<SkeletonSection><SkeletonRail /></SkeletonSection>}>
+          <RecentlyAdded />
+        </Suspense>
+      )}
 
-      <Suspense fallback={null}>
-        <FeaturedCarRail />
-      </Suspense>
+      {sections.featuredCars && (
+        <Suspense fallback={null}>
+          <FeaturedCarRail />
+        </Suspense>
+      )}
 
-      <Suspense fallback={<SkeletonSection><SkeletonGrid tiles={6} /></SkeletonSection>}>
-        <VerifiedSellers />
-      </Suspense>
+      {sections.verifiedSellers && (
+        <Suspense fallback={<SkeletonSection><SkeletonGrid tiles={6} /></SkeletonSection>}>
+          <VerifiedSellers />
+        </Suspense>
+      )}
 
-      <SocialProof
-        dealers={
-          <Suspense fallback={null}>
-            <FeaturedDealers />
-          </Suspense>
-        }
-        reviews={
-          <Suspense fallback={null}>
-            <ReviewsSection />
-          </Suspense>
-        }
-      />
+      {sections.socialProof && (
+        <SocialProof
+          dealers={
+            <Suspense fallback={null}>
+              <FeaturedDealers />
+            </Suspense>
+          }
+          reviews={
+            <Suspense fallback={null}>
+              <ReviewsSection />
+            </Suspense>
+          }
+        />
+      )}
 
-      <Suspense fallback={<SkeletonBand className="h-32" />}>
-        <StatisticsBand />
-      </Suspense>
+      {sections.statisticsBand && (
+        <Suspense fallback={<SkeletonBand className="h-32" />}>
+          <StatisticsBand />
+        </Suspense>
+      )}
 
-      <TrustComparison />
+      {sections.trustComparison && <TrustComparison />}
 
-      <HowItWorks />
+      {sections.howItWorks && <HowItWorks />}
 
-      <WhySeedhiDeal />
-      <DownloadApp />
-      <NewsletterSection />
-      <FaqAccordion />
+      {sections.whySeedhiDeal && <WhySeedhiDeal />}
+      {sections.downloadApp && <DownloadApp />}
+      {sections.newsletter && <NewsletterSection />}
+      {sections.faq && <FaqAccordion />}
 
       {/* CTA BAND — existing content, kept verbatim */}
       <section className="bg-brand px-6 py-20">

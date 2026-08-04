@@ -5,6 +5,7 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { CompareTray } from "@/components/compare-tray";
 import { SiteChrome } from "@/components/site-chrome";
+import { getSiteSettings } from "@/lib/site-settings";
 
 // Brand fonts per the SeedhiDeal Design System v1.0:
 // Newsreader (headlines, prices, wordmark) + Inter (UI and body)
@@ -22,47 +23,60 @@ const newsreader = Newsreader({
 });
 
 // Same fallback pattern already used on the homepage's JSON-LD (src/app/page.tsx)
-// and the new sitemap/robots routes — no production domain configured yet.
+// and the sitemap/robots routes — no production domain configured yet.
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-const SITE_TITLE = "SeedhiDeal — verified cars from real owners";
-const SITE_DESCRIPTION =
-  "Trust-first marketplace for verified private-owner cars in Pakistan. Real owners. Real buyers. Seedhi deal.";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: {
-    default: SITE_TITLE,
-    template: "%s | SeedhiDeal",
-  },
-  description: SITE_DESCRIPTION,
-  // No global canonical here — canonical URLs are defined only by individual
-  // pages that need one (e.g. /cars, /cars/[id], /dealers, /dealers/[id]),
-  // each via its own `alternates.canonical`, same pattern as per-page `title`.
-  openGraph: {
-    title: SITE_TITLE,
-    description: SITE_DESCRIPTION,
-    url: SITE_URL,
-    siteName: "SeedhiDeal",
-    images: [{ url: "/logo.jpg" }],
-    locale: "en_PK",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: SITE_TITLE,
-    description: SITE_DESCRIPTION,
-    images: ["/logo.jpg"],
-  },
-};
+// Metadata is generated per-request (not a static export) so the admin Website
+// Settings > SEO/General tabs take effect immediately, with no rebuild — the same
+// "no fake settings" requirement as everything else in this phase. Falls back to the
+// exact same copy this file hardcoded before if nothing has been configured yet.
+export async function generateMetadata(): Promise<Metadata> {
+  const { general, seo, media } = await getSiteSettings();
+  const title = seo.metaTitle || general.siteName;
+  const description = seo.metaDescription || general.description;
+  const canonicalBase = seo.canonicalUrl || SITE_URL;
 
-export default function RootLayout({
+  return {
+    metadataBase: new URL(canonicalBase),
+    title: {
+      default: title,
+      template: `%s | ${general.siteName}`,
+    },
+    description,
+    robots: seo.robots || undefined,
+    // No global canonical *path* here — canonical URLs for individual pages are still
+    // defined by those pages themselves (e.g. /cars, /cars/[id]) via their own
+    // alternates.canonical; only metadataBase (the origin canonical URLs resolve
+    // against) is admin-configurable.
+    openGraph: {
+      title,
+      description,
+      url: canonicalBase,
+      siteName: general.siteName,
+      images: [{ url: seo.ogImage || "/logo.jpg" }],
+      locale: "en_PK",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [seo.twitterImage || "/logo.jpg"],
+    },
+    icons: media.favicon ? { icon: media.favicon } : undefined,
+  };
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { general } = await getSiteSettings();
+
   return (
     <html
-      lang="en"
+      lang={general.language || "en"}
       className={`${inter.variable} ${newsreader.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">

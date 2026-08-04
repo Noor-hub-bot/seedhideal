@@ -66,3 +66,29 @@ export async function sendOtpEmail(
   const copy = PURPOSE_COPY[purpose];
   await resolveAdapter().send(email, copy.subject, buildOtpEmailHtml(code, purpose));
 }
+
+/** The Email settings tab's "Test Email" button — sends through the exact same adapter
+ * (console log in dev mode, Resend in production) as every real transactional email, so
+ * a successful test genuinely confirms the configured path works end to end. */
+export async function sendTestEmail(to: string): Promise<void> {
+  await resolveAdapter().send(
+    to,
+    "Test email — SeedhiDeal admin settings",
+    `<div style="font-family: Inter, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; color: #0F172A;">
+      <p style="font-size: 20px; font-weight: 700; margin: 0 0 24px;">SeedhiDeal</p>
+      <p style="font-size: 14px; color: #475569; line-height: 1.5;">This is a test email sent from the admin Website Settings page to confirm outbound email is configured correctly.</p>
+    </div>`,
+  );
+}
+
+/** Read-only Email tab info — real, currently-hardcoded values (no separate SMTP
+ * settings exist to manage; only Resend's API key, an env var, does). */
+export function getEmailConfigSummary(): { provider: string; senderName: string; senderEmail: string; configured: boolean } {
+  const devMode = process.env.OTP_DEV_MODE === "true";
+  return {
+    provider: devMode ? "Console (dev mode)" : "Resend",
+    senderName: "SeedhiDeal",
+    senderEmail: "onboarding@resend.dev",
+    configured: devMode || !!process.env.RESEND_API_KEY,
+  };
+}
