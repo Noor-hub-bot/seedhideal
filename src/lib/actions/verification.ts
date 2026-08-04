@@ -117,6 +117,7 @@ async function decideVerification(
   });
 
   revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
 }
 
 export async function approveVerificationAction(formData: FormData): Promise<void> {

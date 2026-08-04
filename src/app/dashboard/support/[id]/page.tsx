@@ -48,7 +48,7 @@ export default async function TicketThreadPage({
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
       <Link
-        href={staffViewer ? "/admin" : "/dashboard/support"}
+        href={staffViewer ? "/admin/moderation" : "/dashboard/support"}
         className="text-[13px] font-semibold text-muted hover:text-foreground"
       >
         ← Back

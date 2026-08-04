@@ -107,6 +107,7 @@ async function decideBoost(formData: FormData, status: "active" | "cancelled"): 
   });
 
   revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
   revalidatePath("/dashboard");
   revalidatePath("/cars");
   revalidatePath("/");
@@ -148,6 +149,7 @@ export async function cancelActiveBoostAction(formData: FormData): Promise<void>
   });
 
   revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
   revalidatePath("/cars");
   revalidatePath("/");
 }

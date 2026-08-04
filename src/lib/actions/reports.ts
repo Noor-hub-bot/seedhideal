@@ -86,4 +86,5 @@ export async function updateReportStatusAction(formData: FormData): Promise<void
   }
 
   revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
 }

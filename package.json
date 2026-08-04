@@ -13,6 +13,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1092.0",
     "@neondatabase/serverless": "^1.1.0",
+    "@radix-ui/react-tooltip": "^1.2.16",
     "drizzle-orm": "^0.45.2",
     "next": "16.2.10",
     "next-auth": "^5.0.0-beta.32",

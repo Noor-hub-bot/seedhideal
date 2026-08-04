@@ -93,6 +93,7 @@ export async function replyToTicketAction(
   revalidatePath(`/dashboard/support/${ticketId}`);
   revalidatePath("/dashboard/support");
   revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
   return {};
 }
 
@@ -139,5 +140,6 @@ export async function updateTicketStatusAction(formData: FormData): Promise<void
   });
 
   revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
   revalidatePath(`/dashboard/support/${ticketId}`);
 }

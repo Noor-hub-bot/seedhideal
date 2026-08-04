@@ -477,6 +477,7 @@ export async function moderateListingAction(formData: FormData): Promise<void> {
   });
 
   revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
   revalidatePath("/");
 }
 

@@ -30,3 +30,28 @@ export function formatKm(km: number): string {
 export function formatDate(d: Date): string {
   return d.toLocaleDateString("en-PK", { day: "numeric", month: "short", year: "numeric" });
 }
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+const WEEK = 7 * DAY;
+
+/** "just now", "5 minutes ago", "3 hours ago", "2 days ago" — falls back to a plain
+ * date once it's further away than a week, where a relative count stops being useful. */
+export function formatRelativeTime(d: Date): string {
+  const diffMs = Date.now() - d.getTime();
+  if (diffMs < MINUTE) return "just now";
+  if (diffMs < HOUR) {
+    const n = Math.floor(diffMs / MINUTE);
+    return `${n} minute${n === 1 ? "" : "s"} ago`;
+  }
+  if (diffMs < DAY) {
+    const n = Math.floor(diffMs / HOUR);
+    return `${n} hour${n === 1 ? "" : "s"} ago`;
+  }
+  if (diffMs < WEEK) {
+    const n = Math.floor(diffMs / DAY);
+    return `${n} day${n === 1 ? "" : "s"} ago`;
+  }
+  return formatDate(d);
+}

@@ -90,6 +90,7 @@ async function decideReview(
   });
 
   revalidatePath("/admin");
+  revalidatePath("/admin/moderation");
   revalidatePath("/");
 }
 

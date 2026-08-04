@@ -141,6 +141,42 @@ export function Heading({
   );
 }
 
+// Plain semantic <table> wrappers (no new dependency) — added for the admin user
+// directory, which reads better as real tabular data than stacked cards. Styled with
+// the same tokens as Card/Badge above rather than a separate table design.
+export function Table({ className = "", ...props }: ComponentProps<"table">) {
+  return (
+    <div className="w-full overflow-x-auto rounded-card border border-border">
+      <table className={`w-full border-collapse text-left ${className}`} {...props} />
+    </div>
+  );
+}
+
+export function TableHeader(props: ComponentProps<"thead">) {
+  return <thead className="border-b border-border bg-background" {...props} />;
+}
+
+export function TableBody(props: ComponentProps<"tbody">) {
+  return <tbody className="divide-y divide-border" {...props} />;
+}
+
+export function TableRow({ className = "", ...props }: ComponentProps<"tr">) {
+  return <tr className={`transition-colors hover:bg-background ${className}`} {...props} />;
+}
+
+export function TableHead({ className = "", ...props }: ComponentProps<"th">) {
+  return (
+    <th
+      className={`px-4 py-3 text-[12px] font-semibold uppercase tracking-wide text-muted ${className}`}
+      {...props}
+    />
+  );
+}
+
+export function TableCell({ className = "", ...props }: ComponentProps<"td">) {
+  return <td className={`px-4 py-3 text-[13px] ${className}`} {...props} />;
+}
+
 /** Scam-safety warning shown before contact/visit actions (DET-06, INQ-07).
     Calm, factual tone per brand principles — informative, not alarmist. */
 export function SafetyNotice() {
