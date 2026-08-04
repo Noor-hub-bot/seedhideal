@@ -8,6 +8,8 @@ import { getSessionUser, isStaff } from "@/lib/auth";
 import { Badge, Card } from "@/components/ui";
 import { formatDate, formatPkr } from "@/lib/format";
 import { EmptyState } from "@/components/admin/section-card";
+import { AdminUserActions } from "@/components/admin/user-actions";
+import type { UserSummary } from "@/lib/admin/users";
 
 export const metadata: Metadata = { title: "Admin — user profile" };
 
@@ -52,6 +54,23 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
       .orderBy(desc(verificationCases.createdAt)),
   ]);
 
+  // Built from the queries above rather than a second call to getUserSummaries — this
+  // page already has everything needed (listing count, verification history) to
+  // compute the same shape AdminUserActions expects.
+  const pendingCase = verificationHistory.find((v) => v.status === "pending");
+  const userSummary: UserSummary = {
+    id: profileUser.id,
+    displayName: profileUser.displayName,
+    email: profileUser.email,
+    avatarUrl: profileUser.avatarUrl,
+    createdAt: profileUser.createdAt,
+    role: profileUser.role,
+    status: profileUser.status,
+    listingCount: userListings.length,
+    verificationStatus: verificationHistory.some((v) => v.status === "verified") ? "verified" : pendingCase ? "pending" : "none",
+    pendingVerificationCaseId: pendingCase?.id ?? null,
+  };
+
   return (
     <div className="mx-auto max-w-4xl space-y-8 px-4 py-10">
       <Link href="/admin/users" className="text-[13px] font-semibold text-muted hover:text-foreground">
@@ -73,16 +92,13 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
           <p className="mt-1 text-sm text-muted">
             {profileUser.email ?? "No email on file"} {profileUser.phone ? `· ${profileUser.phone}` : ""}
           </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Badge tone="neutral" className="capitalize">
-              {profileUser.role}
-            </Badge>
-            <Badge tone={profileUser.status === "active" ? "verified" : "review"} className="capitalize">
-              {profileUser.status}
-            </Badge>
-            <span className="text-[13px] text-muted">Joined {formatDate(profileUser.createdAt)}</span>
-          </div>
+          <p className="mt-1 text-[13px] text-muted">Joined {formatDate(profileUser.createdAt)}</p>
         </div>
+      </div>
+
+      <div>
+        <h2 className="mb-3 font-display text-lg font-medium">Manage</h2>
+        <AdminUserActions user={userSummary} />
       </div>
 
       <div>

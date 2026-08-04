@@ -122,3 +122,62 @@
 .carousel-photo-fade {
   animation: carousel-photo-fade-in 300ms ease-out;
 }
+
+/* Admin AlertDialog (src/components/ui/alert-dialog.tsx) open animation, driven by
+   Radix's own data-state attribute rather than a class toggle we manage ourselves. */
+@keyframes dialog-overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.dialog-overlay[data-state="open"] {
+  animation: dialog-overlay-fade-in 150ms ease-out;
+}
+
+@keyframes alert-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+.alert-dialog-content[data-state="open"] {
+  animation: alert-dialog-in 150ms ease-out;
+}
+
+/* Admin Toast (src/components/ui/toast.tsx) slide-in/out and swipe gestures, again
+   driven by Radix's data-state/data-swipe attributes. */
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(calc(100% + 1rem));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes toast-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.toast-root[data-state="open"] {
+  animation: toast-slide-in 200ms ease-out;
+}
+.toast-root[data-state="closed"] {
+  animation: toast-fade-out 150ms ease-in;
+}
+.toast-root[data-swipe="move"] {
+  transform: translateX(var(--radix-toast-swipe-move-x));
+}
+.toast-root[data-swipe="end"] {
+  animation: toast-slide-in 150ms ease-in reverse;
+}

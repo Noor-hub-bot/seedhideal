@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Badge, TableCell, TableRow } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import type { UserSummary } from "@/lib/admin/users";
+import { AdminUserActions } from "./user-actions";
 
 const VERIFICATION_BADGE = {
   verified: { tone: "verified" as const, label: "Verified" },
@@ -85,12 +86,15 @@ export function UserTableRow({ user }: { user: UserSummary }) {
         </Badge>
       </TableCell>
       <TableCell>
-        <Link
-          href={`/admin/users/${user.id}`}
-          className="whitespace-nowrap rounded-control border border-border-input px-3 py-2 text-[12px] font-semibold text-foreground hover:bg-background"
-        >
-          View Profile
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <AdminUserActions user={user} />
+          <Link
+            href={`/admin/users/${user.id}`}
+            className="whitespace-nowrap rounded-control border border-border-input px-3 py-2 text-[12px] font-semibold text-foreground hover:bg-background"
+          >
+            View Profile
+          </Link>
+        </div>
       </TableCell>
     </TableRow>
   );
