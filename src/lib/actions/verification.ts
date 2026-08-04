@@ -2,10 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
 import { auditLog, db, verificationCases } from "@/db";
 import { getSessionUser, requireStaff } from "@/lib/auth";
-import { notify } from "@/lib/notify";
+import { decideVerificationAsStaff } from "@/lib/admin/verification-mutations";
 import {
   ALLOWED_DOC_TYPES,
   MAX_DOC_BYTES,
@@ -74,50 +73,18 @@ export async function submitVerificationAction(
 
 async function decideVerification(
   formData: FormData,
-  status: "verified" | "rejected",
+  status: "verified" | "rejected" | "action_required",
 ): Promise<void> {
   const staff = await requireStaff();
   const caseId = String(formData.get("caseId"));
-  const reason = String(formData.get("reason") ?? "").trim();
-  if (status === "rejected" && !reason) return;
+  const reason = String(formData.get("reason") ?? "");
 
-  const [existingCase] = await db
-    .select()
-    .from(verificationCases)
-    .where(eq(verificationCases.id, caseId));
-  if (!existingCase || existingCase.status !== "pending") return;
-
-  await db
-    .update(verificationCases)
-    .set({
-      status,
-      reviewerId: staff.id,
-      reviewerNote: reason || null,
-      reviewedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(verificationCases.id, caseId));
-
-  await db.insert(auditLog).values({
-    actorId: staff.id,
-    objectType: "verification_case",
-    objectId: caseId,
-    action: status === "verified" ? "approved" : "rejected",
-    priorState: existingCase.status,
-    newState: status,
-    reason: reason || null,
-  });
-
-  await notify({
-    userId: existingCase.userId,
-    type: status === "verified" ? "verification_approved" : "verification_rejected",
-    title: status === "verified" ? "You're a verified owner" : "Verification needs another look",
-    body: reason || undefined,
-    href: "/dashboard/verify",
-  });
+  const result = await decideVerificationAsStaff(staff.id, caseId, status, reason);
+  if (!result.ok) return;
 
   revalidatePath("/admin");
   revalidatePath("/admin/moderation");
+  revalidatePath("/admin/verification");
 }
 
 export async function approveVerificationAction(formData: FormData): Promise<void> {
@@ -126,4 +93,12 @@ export async function approveVerificationAction(formData: FormData): Promise<voi
 
 export async function rejectVerificationAction(formData: FormData): Promise<void> {
   await decideVerification(formData, "rejected");
+}
+
+/** Asks the applicant to resubmit documents — a lighter outcome than Reject, using the
+ * verification_status enum's existing "action_required" value (already defined in the
+ * schema, unused until now) rather than a new column or status. Shares the exact same
+ * decision path as approve/reject above, just a third status value. */
+export async function requestResubmissionAction(formData: FormData): Promise<void> {
+  await decideVerification(formData, "action_required");
 }
