@@ -4,10 +4,12 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { db, featuredPlans, listingBoosts, listings } from "@/db";
 import { getSessionUser, isStaff } from "@/lib/auth";
 import { getBlockingListing } from "@/lib/actions/marketplace";
+import { enrichListings } from "@/lib/listing-enrichment";
 import { Badge, ButtonLink, Card } from "@/components/ui";
+import { ListingCard } from "@/components/listing-card";
 import { BoostStatus, ListingActions } from "@/components/dashboard/listing-actions";
 import { STATUS_LABEL, STATUS_TONE } from "@/lib/dashboard-labels";
-import { formatDate, formatPkr } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 
 export const metadata: Metadata = { title: "My listings" };
 
@@ -27,7 +29,7 @@ export default async function MyListingsPage({
     .orderBy(desc(listings.createdAt));
   const listingIds = myListings.map((l) => l.id);
 
-  const [activePlans, myBoosts, blockingListing] = await Promise.all([
+  const [activePlans, myBoosts, blockingListing, { verifiedSellers, photosByListing }] = await Promise.all([
     db.select().from(featuredPlans).where(eq(featuredPlans.active, true)),
     listingIds.length
       ? db
@@ -39,6 +41,10 @@ export default async function MyListingsPage({
     // Staff bypass the one-active-listing restriction (see src/app/sell/page.tsx) — the
     // "Sell your car" button below must stay visible for them too.
     isStaff(user) ? Promise.resolve(null) : getBlockingListing(user.id),
+    // Same batched seller-verified/photos lookup every other ListingCard consumer uses —
+    // here every row shares one seller (the viewer), but reusing it avoids a second copy
+    // of that join logic just for this page.
+    enrichListings(myListings, user),
   ]);
 
   const boostByListing = new Map<string, (typeof myBoosts)[number]>();
@@ -68,31 +74,38 @@ export default async function MyListingsPage({
           protected and with no surprise charges.
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {myListings.map((l) => (
-            <Card key={l.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-              <div>
-                <p className="font-semibold">
-                  {l.make} {l.model} {l.year} — {formatPkr(l.askingPricePkr)}
-                </p>
-                <p className="mt-0.5 text-xs text-muted">
-                  Submitted {formatDate(l.createdAt)}
-                  {l.expiresAt && l.status === "active" ? ` · expires ${formatDate(l.expiresAt)}` : ""}
-                </p>
-                {l.status === "correction" && l.rejectionReason && (
-                  <p className="mt-1 rounded-input bg-alert-soft px-2 py-1 text-xs text-alert-ink">
-                    Correction needed: {l.rejectionReason}
-                  </p>
-                )}
-                <div className="mt-2">
-                  <BoostStatus listing={l} boost={boostByListing.get(l.id)} plans={activePlans} />
+            <ListingCard
+              key={l.id}
+              listing={l}
+              layout="list"
+              sellerVerified={verifiedSellers.has(l.sellerId)}
+              photos={photosByListing.get(l.id) ?? []}
+              showOverlayActions={false}
+              footer={
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone={STATUS_TONE[l.status] ?? "neutral"}>{STATUS_LABEL[l.status] ?? l.status}</Badge>
+                      <span className="text-xs text-muted">
+                        Submitted {formatDate(l.createdAt)}
+                        {l.expiresAt && l.status === "active" ? ` · expires ${formatDate(l.expiresAt)}` : ""}
+                      </span>
+                    </div>
+                    {l.status === "correction" && l.rejectionReason && (
+                      <p className="mt-1.5 rounded-input bg-alert-soft px-2 py-1 text-xs text-alert-ink">
+                        Correction needed: {l.rejectionReason}
+                      </p>
+                    )}
+                    <div className="mt-1.5">
+                      <BoostStatus listing={l} boost={boostByListing.get(l.id)} plans={activePlans} />
+                    </div>
+                  </div>
+                  <ListingActions status={l.status} listingId={l.id} />
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge tone={STATUS_TONE[l.status] ?? "neutral"}>{STATUS_LABEL[l.status] ?? l.status}</Badge>
-                <ListingActions status={l.status} listingId={l.id} />
-              </div>
-            </Card>
+              }
+            />
           ))}
         </div>
       )}
