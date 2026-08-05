@@ -123,6 +123,21 @@
   animation: carousel-photo-fade-in 300ms ease-out;
 }
 
+/* "New Car Added" notification entrance (src/components/new-listing-notifications.tsx) */
+@keyframes new-listing-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.new-listing-enter {
+  animation: new-listing-in 250ms ease-out;
+}
+
 /* Admin AlertDialog (src/components/ui/alert-dialog.tsx) open animation, driven by
    Radix's own data-state attribute rather than a class toggle we manage ourselves. */
 @keyframes dialog-overlay-fade-in {

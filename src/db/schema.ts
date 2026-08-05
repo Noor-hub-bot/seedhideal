@@ -304,6 +304,9 @@ export const listings = pgTable(
     index("listings_make_idx").on(t.make),
     index("listings_make_model_idx").on(t.make, t.model),
     index("listings_featured_idx").on(t.featured, t.featuredPriority),
+    // Backs the "New Car Added" notification poll (every visitor's browser hits this on
+    // an interval): WHERE status='active' AND approved_at > :since ORDER BY approved_at.
+    index("listings_status_approved_idx").on(t.status, t.approvedAt),
   ],
 );
 
