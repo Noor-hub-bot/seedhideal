@@ -6,11 +6,15 @@
 // the model's own reply, grounded in src/lib/faq-content.ts (the same content the site's
 // own Help page and homepage FAQ show).
 //
+// Talks to OpenRouter's OpenAI-compatible chat-completions endpoint via plain fetch — no
+// SDK needed for a single REST call. Model is "openrouter/free", OpenRouter's own router
+// that picks among whatever free models are currently available, filtered for
+// tool-calling support — genuinely $0 and doesn't break if one specific free model is
+// delisted (as happened to the DeepSeek/Qwen free tiers this was originally scoped for).
+//
 // Extensibility: adding a future AI feature means adding one more entry to `TOOLS` and
 // one more `case` in `runTool` — the request/response shape, the round-trip loop, and
 // the UI never need to change.
-import Anthropic from "@anthropic-ai/sdk";
-import type { MessageParam, Tool, ToolUseBlock } from "@anthropic-ai/sdk/resources/messages";
 import { asc, inArray } from "drizzle-orm";
 import { db, listingPhotos } from "@/db";
 import { searchListings, type ListingSearchFilters } from "@/lib/listing-search";
@@ -18,7 +22,8 @@ import { FAQS } from "@/lib/faq-content";
 import { formatKm, formatPkr } from "@/lib/format";
 import { BODY_TYPES, CITIES, FUEL_TYPES, MAKES, TRANSMISSIONS } from "@/lib/constants";
 
-const MODEL = "claude-haiku-4-5";
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const MODEL = "openrouter/free";
 const MAX_TOOL_ROUNDS = 3;
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -91,40 +96,53 @@ For a request to help write a listing description, write one directly in your re
 
 Keep every reply short and conversational — a few sentences, not an essay.`;
 
-const TOOLS: Tool[] = [
+// OpenAI-compatible function-calling shape (OpenRouter's request/response schema),
+// distinct from Anthropic's {name, input_schema} shape this replaced.
+type ORTool = {
+  type: "function";
+  function: { name: string; description: string; parameters: Record<string, unknown> };
+};
+
+const TOOLS: ORTool[] = [
   {
-    name: "search_cars",
-    description:
-      "Search real, live SeedhiDeal car listings by any combination of filters. Also used to power recommendations — choose sensible filter values yourself for a vague request.",
-    input_schema: {
-      type: "object",
-      properties: {
-        query: {
-          type: "string",
-          description: "Free-text search — matches make, model, variant, or a 4-digit model year (e.g. 'Corolla 2022').",
+    type: "function",
+    function: {
+      name: "search_cars",
+      description:
+        "Search real, live SeedhiDeal car listings by any combination of filters. Also used to power recommendations — choose sensible filter values yourself for a vague request.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Free-text search — matches make, model, variant, or a 4-digit model year (e.g. 'Corolla 2022').",
+          },
+          make: { type: "string", enum: MAKES },
+          city: { type: "string", enum: CITIES },
+          bodyType: { type: "string", enum: BODY_TYPES },
+          fuel: { type: "string", enum: FUEL_TYPES.map((f) => f.value) },
+          transmission: { type: "string", enum: ["manual", "automatic"] },
+          priceMin: { type: "number", description: "Minimum price in PKR." },
+          priceMax: { type: "number", description: "Maximum price in PKR." },
+          yearMin: { type: "number", description: "Earliest model year." },
+          yearMax: { type: "number", description: "Latest model year." },
         },
-        make: { type: "string", enum: MAKES },
-        city: { type: "string", enum: CITIES },
-        bodyType: { type: "string", enum: BODY_TYPES },
-        fuel: { type: "string", enum: FUEL_TYPES.map((f) => f.value) },
-        transmission: { type: "string", enum: ["manual", "automatic"] },
-        priceMin: { type: "number", description: "Minimum price in PKR." },
-        priceMax: { type: "number", description: "Maximum price in PKR." },
-        yearMin: { type: "number", description: "Earliest model year." },
-        yearMax: { type: "number", description: "Latest model year." },
       },
     },
   },
   {
-    name: "compare_cars",
-    description: "Looks up two real listings by a short description of each, for a side-by-side comparison.",
-    input_schema: {
-      type: "object",
-      properties: {
-        carA: { type: "string", description: "e.g. 'Toyota Corolla 2022'" },
-        carB: { type: "string", description: "e.g. 'Honda Civic 2021'" },
+    type: "function",
+    function: {
+      name: "compare_cars",
+      description: "Looks up two real listings by a short description of each, for a side-by-side comparison.",
+      parameters: {
+        type: "object",
+        properties: {
+          carA: { type: "string", description: "e.g. 'Toyota Corolla 2022'" },
+          carB: { type: "string", description: "e.g. 'Honda Civic 2021'" },
+        },
+        required: ["carA", "carB"],
       },
-      required: ["carA", "carB"],
     },
   },
 ];
@@ -188,12 +206,44 @@ async function runTool(name: string, input: Record<string, unknown>): Promise<To
   return { toolResultText: `Unknown tool: ${name}.`, cars: [] };
 }
 
-function extractText(content: Anthropic.Messages.ContentBlock[]): string {
-  return content
-    .filter((b): b is Anthropic.Messages.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("\n")
-    .trim();
+// --- OpenRouter (OpenAI-compatible) request/response shapes -----------------------
+
+type ORToolCall = { id: string; type: "function"; function: { name: string; arguments: string } };
+
+type ORMessage =
+  | { role: "system" | "user"; content: string }
+  | { role: "assistant"; content: string | null; tool_calls?: ORToolCall[] }
+  | { role: "tool"; content: string; tool_call_id: string };
+
+type ORResponse = {
+  choices?: {
+    message: { role: "assistant"; content: string | null; tool_calls?: ORToolCall[] };
+    finish_reason: string;
+  }[];
+  error?: { message?: string };
+};
+
+async function callOpenRouter(apiKey: string, messages: ORMessage[]): Promise<ORResponse> {
+  const res = await fetch(OPENROUTER_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+      "X-Title": "SeedhiDeal Assistant",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 700,
+      messages,
+      tools: TOOLS,
+    }),
+  });
+
+  const data = (await res.json()) as ORResponse;
+  if (!res.ok) {
+    throw new Error(data.error?.message || `OpenRouter request failed (${res.status}).`);
+  }
+  return data;
 }
 
 /** Runs one turn of the assistant: the full prior conversation in, one reply (plus any
@@ -201,31 +251,28 @@ function extractText(content: Anthropic.Messages.ContentBlock[]): string {
  * holds the transcript and resends it each turn, so no new database table is needed to
  * ship this MVP. */
 export async function runAssistant(history: ChatMessage[]): Promise<AssistantResponse> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     return {
       ok: false,
-      error: "The AI Assistant isn't configured yet — an administrator needs to add an ANTHROPIC_API_KEY.",
+      error: "The AI Assistant isn't configured yet — an administrator needs to add an OPENROUTER_API_KEY.",
     };
   }
 
-  const client = new Anthropic({ apiKey });
-  const messages: MessageParam[] = history.map((m) => ({ role: m.role, content: m.content }));
+  const messages: ORMessage[] = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...history.map((m): ORMessage => ({ role: m.role, content: m.content })),
+  ];
   const allCars: CarResult[] = [];
 
   try {
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const response = await client.messages.create({
-        model: MODEL,
-        max_tokens: 700,
-        system: SYSTEM_PROMPT,
-        tools: TOOLS,
-        messages,
-      });
+      const response = await callOpenRouter(apiKey, messages);
+      const message = response.choices?.[0]?.message;
+      const toolCalls = message?.tool_calls ?? [];
 
-      const toolUseBlocks = response.content.filter((b): b is ToolUseBlock => b.type === "tool_use");
-      if (toolUseBlocks.length === 0) {
-        const text = extractText(response.content);
+      if (toolCalls.length === 0) {
+        const text = (message?.content ?? "").trim();
         return {
           ok: true,
           reply: text || "I'm not sure how to help with that — try asking me to find a car, compare two cars, or how SeedhiDeal works.",
@@ -233,15 +280,19 @@ export async function runAssistant(history: ChatMessage[]): Promise<AssistantRes
         };
       }
 
-      messages.push({ role: "assistant", content: response.content });
+      messages.push({ role: "assistant", content: message?.content ?? null, tool_calls: toolCalls });
 
-      const toolResults: Anthropic.Messages.ToolResultBlockParam[] = [];
-      for (const block of toolUseBlocks) {
-        const outcome = await runTool(block.name, block.input as Record<string, unknown>);
+      for (const call of toolCalls) {
+        let input: Record<string, unknown> = {};
+        try {
+          input = JSON.parse(call.function.arguments) as Record<string, unknown>;
+        } catch {
+          // Malformed arguments — fall through with an empty filter set rather than crash.
+        }
+        const outcome = await runTool(call.function.name, input);
         allCars.push(...outcome.cars);
-        toolResults.push({ type: "tool_result", tool_use_id: block.id, content: outcome.toolResultText });
+        messages.push({ role: "tool", tool_call_id: call.id, content: outcome.toolResultText });
       }
-      messages.push({ role: "user", content: toolResults });
     }
 
     return {
