@@ -1,22 +1,8 @@
 import type { Metadata } from "next";
 import { ButtonLink, Card, Heading } from "@/components/ui";
+import { FAQS } from "@/lib/faq-content";
 
 export const metadata: Metadata = { title: "Help" };
-
-const FAQS = [
-  {
-    q: "How does verification work?",
-    a: "Every listing goes through an ownership and document check before it's marked Verified. Look for the gold Verified badge on a listing.",
-  },
-  {
-    q: "Is it free to post my car?",
-    a: "Yes — posting a listing is free. You'll only see a Verified badge cost if you choose to fast-track verification.",
-  },
-  {
-    q: "How do I contact a seller?",
-    a: "Open any listing and use the contact options there — no extra sign-up required to browse.",
-  },
-];
 
 export default function HelpPage() {
   return (

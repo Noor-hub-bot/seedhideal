@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { and, asc, count, desc, eq, gt, gte, ilike, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db, listings, verificationCases } from "@/db";
 import { getSessionUser } from "@/lib/auth";
 import { enrichListings } from "@/lib/listing-enrichment";
+import { buildListingSearchConditions } from "@/lib/listing-search";
 import { ListingCard } from "@/components/listing-card";
 import { Card, Heading } from "@/components/ui";
 import { CarFilters, type FilterValues } from "@/components/car-filters";
 import { Pagination } from "@/components/pagination";
 import {
   ASSEMBLY_OPTIONS,
-  BODY_TYPES,
   CITIES,
   COLORS,
   FUEL_TYPES,
@@ -74,54 +74,34 @@ export default async function BrowsePage({
 
   // Exact-match filters only (SRC-07). Excludes listings past expiresAt even if the
   // /api/cron/sweep-listings job hasn't flipped their status to "expired" yet.
-  const conditions = [
-    eq(listings.status, "active" as const),
-    or(isNull(listings.expiresAt), gt(listings.expiresAt, new Date()))!,
-  ];
-  if (params.city && CITIES.includes(params.city))
-    conditions.push(eq(listings.city, params.city));
-  if (params.make && MAKES.includes(params.make))
-    conditions.push(eq(listings.make, params.make));
-  if (params.transmission === "automatic" || params.transmission === "manual")
-    conditions.push(eq(listings.transmission, params.transmission));
-  if (params.priceMax && /^\d+$/.test(params.priceMax))
-    conditions.push(lte(listings.askingPricePkr, Number(params.priceMax)));
-  if (params.q?.trim()) {
-    const q = `%${params.q.trim()}%`;
-    const yearNum = Number(params.q.trim());
-    const textMatch = or(
-      ilike(listings.make, q),
-      ilike(listings.model, q),
-      ilike(listings.variant, q),
-    );
-    conditions.push(
-      Number.isInteger(yearNum) && yearNum > 1900
-        ? (or(textMatch, and(gte(listings.year, yearNum), lte(listings.year, yearNum)))!)
-        : textMatch!,
-    );
-  }
-
+  // The fields this page shares with the AI assistant's car-search tool (city, make,
+  // transmission, fuel, bodyType, price/year range, free-text q) are built once in
+  // listing-search.ts so both call the identical real query; everything below that call
+  // is a filter unique to this page's own advanced filter panel.
   const priceMin = parseIntParam(params.priceMin);
-  if (priceMin !== undefined) conditions.push(gte(listings.askingPricePkr, priceMin));
-
   const yearMin = parseYearParam(params.yearMin);
-  if (yearMin !== undefined) conditions.push(gte(listings.year, yearMin));
   const yearMax = parseYearParam(params.yearMax);
-  if (yearMax !== undefined) conditions.push(lte(listings.year, yearMax));
+  const conditions = buildListingSearchConditions({
+    q: params.q,
+    city: params.city,
+    make: params.make,
+    transmission: params.transmission === "automatic" || params.transmission === "manual" ? params.transmission : undefined,
+    fuel: params.fuel,
+    bodyType: params.bodyType,
+    priceMin,
+    priceMax: parseIntParam(params.priceMax),
+    yearMin,
+    yearMax,
+  });
 
   const mileageMax = parseIntParam(params.mileageMax);
   if (mileageMax !== undefined) conditions.push(lte(listings.mileageKm, mileageMax));
-
-  if (params.fuel && FUEL_TYPES.some((f) => f.value === params.fuel))
-    conditions.push(eq(listings.fuel, params.fuel as (typeof FUEL_TYPES)[number]["value"]));
 
   const engineMin = parseIntParam(params.engineMin);
   if (engineMin !== undefined) conditions.push(gte(listings.engineCc, engineMin));
   const engineMax = parseIntParam(params.engineMax);
   if (engineMax !== undefined) conditions.push(lte(listings.engineCc, engineMax));
 
-  if (params.bodyType && BODY_TYPES.includes(params.bodyType))
-    conditions.push(eq(listings.bodyType, params.bodyType));
   if (params.exteriorColor && COLORS.includes(params.exteriorColor))
     conditions.push(eq(listings.exteriorColor, params.exteriorColor));
   if (params.interiorColor && COLORS.includes(params.interiorColor))

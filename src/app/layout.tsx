@@ -6,6 +6,7 @@ import { Footer } from "@/components/footer";
 import { CompareTray } from "@/components/compare-tray";
 import { SiteChrome } from "@/components/site-chrome";
 import { NewListingNotifications } from "@/components/new-listing-notifications";
+import { AssistantWidget } from "@/components/assistant/assistant-widget";
 import { getSiteSettings } from "@/lib/site-settings";
 
 // Brand fonts per the SeedhiDeal Design System v1.0:
@@ -85,6 +86,7 @@ export default async function RootLayout({
           {children}
         </SiteChrome>
         <NewListingNotifications />
+        <AssistantWidget />
       </body>
     </html>
   );
